@@ -50,4 +50,14 @@ export const citasService = {
             throw error;
         }
     },
+
+    obtenerPorProfesional: async (profesionalId: number, page: number = 0, size: number = 100) => {
+        try {
+            const response = await api.get(`/citas/profesional/${profesionalId}?page=${page}&size=${size}`);
+            return response.data;
+        } catch (error) {
+            console.error("Error al obtener citas por profesional:", error);
+            throw error;
+        }
+    },
 };

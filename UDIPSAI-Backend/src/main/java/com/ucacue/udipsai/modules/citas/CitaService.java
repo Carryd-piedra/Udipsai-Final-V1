@@ -489,15 +489,36 @@ public class CitaService {
 
     // Obtener citas por Profesional
     @Transactional(readOnly = true)
-    public ResponseEntity<Page<CitaEntity>> obtenerCitasPorProfesional(Long idProfesional, Pageable pageable) {
+    public ResponseEntity<Page<CitaDTO>> obtenerCitasPorProfesional(Long idProfesional, Pageable pageable) {
         logger.info("obtenerCitasPorProfesional()");
         logger.info("Obteniendo citas por Profesional");
 
         Page<CitaEntity> citas = citaRepo.findAllByProfesionalId(idProfesional, pageable);
 
+        if (citas.isEmpty()) {
+            Page<CitaDTO> emptyPage = Page.empty(pageable);
+            return new ResponseEntity<>(emptyPage, HttpStatus.OK);
+        }
+
+        Page<CitaDTO> dtos = citas.map(cita -> {
+            Optional<Paciente> pacienteOpt = pacienteRepo.findById(cita.getFichaPaciente().intValue());
+            if (pacienteOpt.isPresent()) {
+                PacienteDTO paciente = pacienteService.convertirADTO(pacienteOpt.get());
+                EspecialistaDTO especialista = especialistaService
+                        .obtenerEspecialistaPorId(cita.getProfesionalId().intValue());
+                Especialidad especialidadEntity = cita.getEspecialidad();
+                EspecialidadDTO especialidad = new EspecialidadDTO(especialidadEntity.getId(),
+                        especialidadEntity.getArea(), null);
+
+                return mapearDTO(cita, paciente, especialista, especialidad);
+            } else {
+                throw new EntityNotFoundException("Paciente no encontrado para cita " + cita.getIdCita());
+            }
+        });
+
         logger.info("200 OK: Citas obtenidas por Profesional correctamente");
 
-        return new ResponseEntity<>(citas, HttpStatus.OK);
+        return new ResponseEntity<>(dtos, HttpStatus.OK);
     }
 
     // Obtener citas por Especialidad (antes Area)
