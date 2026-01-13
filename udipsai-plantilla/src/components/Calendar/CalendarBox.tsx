@@ -45,6 +45,8 @@ const CalendarBox = () => {
                     citasData = response.content || [];
                 }
 
+                console.log("Datos crudos de citas cargadas:", citasData); // Debug log
+
                 const parseDate = (dateStr: string) => {
                     if (!dateStr) return '';
                     const parts = dateStr.split('-');
@@ -71,6 +73,7 @@ const CalendarBox = () => {
                         backgroundColor: color,
                         borderColor: color,
                         extendedProps: {
+                            originalId: cita.citaId || cita.id, // Explicitly keep original ID
                             estado: cita.estado,
                             paciente: cita.paciente,
                             especialidad: cita.especialidad,
@@ -92,9 +95,11 @@ const CalendarBox = () => {
 
     const handleEventClick = (info: any) => {
         const eventData = {
-            title: info.event.title,
-            ...info.event.extendedProps
+            id: info.event.id,
+            ...info.event.extendedProps,
+            title: info.event.title
         };
+        console.log("Evento seleccionado:", eventData); // Debug log
         setSelectedEvent(eventData);
         setIsModalOpen(true);
     };
@@ -134,28 +139,29 @@ const CalendarBox = () => {
                     }}
                     locale="es"
                     locales={[esLocale]}
+                    displayEventTime={false}
                 />
             </div>
 
             {/* Modal de Detalles */}
             {isModalOpen && selectedEvent && (
                 <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-md overflow-hidden transform transition-all scale-100">
-                        <div className="flex justify-between items-center p-4 border-b border-gray-200 dark:border-gray-700">
-                            <h4 className="text-lg font-semibold text-gray-900 dark:text-white">
+                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl overflow-hidden transform transition-all scale-100">
+                        <div className="flex justify-between items-center p-6">
+                            <h4 className="text-xl font-bold text-gray-900 dark:text-white">
                                 Detalles de la Cita
                             </h4>
                             <button onClick={closeModal} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
                                 <CloseIcon />
                             </button>
                         </div>
-                        <div className="p-6 space-y-4">
-                            <div className="space-y-1">
+                        <div className="p-8 space-y-6">
+                            <div className="space-y-2">
                                 <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Paciente</p>
-                                <p className="text-base font-semibold text-gray-900 dark:text-white">
-                                    {selectedEvent.paciente?.nombresApellidos || 'No disponible'}
+                                <p className="text-lg font-semibold text-gray-900 dark:text-white">
+                                    {selectedEvent.paciente?.nombresApellidos || selectedEvent.paciente?.nombres || 'No disponible'}
                                 </p>
-                                <p className="text-xs text-gray-500">{selectedEvent.paciente?.cedula}</p>
+                                <p className="text-sm text-gray-500">{selectedEvent.paciente?.cedula}</p>
                             </div>
 
                             <div className="grid grid-cols-2 gap-4">
@@ -192,7 +198,7 @@ const CalendarBox = () => {
                         <div className="p-4 bg-gray-50 dark:bg-gray-700 flex justify-end">
                             <button
                                 onClick={closeModal}
-                                className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition"
+                                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition"
                             >
                                 Cerrar
                             </button>

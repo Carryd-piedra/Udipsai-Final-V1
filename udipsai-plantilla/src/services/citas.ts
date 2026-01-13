@@ -60,4 +60,44 @@ export const citasService = {
             throw error;
         }
     },
+
+    finalizar: async (id: number | string) => {
+        try {
+            const response = await api.patch(`/citas/finalizar/${id}`);
+            return response.data;
+        } catch (error) {
+            console.error("Error al finalizar cita:", error);
+            throw error;
+        }
+    },
+
+    cancelar: async (id: number | string) => {
+        try {
+            const response = await api.patch(`/citas/cancelar/${id}`);
+            return response.data;
+        } catch (error) {
+            console.error("Error al cancelar cita:", error);
+            throw error;
+        }
+    },
+
+    faltaJustificada: async (id: number | string) => {
+        try {
+            const response = await api.patch(`/citas/falta-justificada/${id}`);
+            return response.data;
+        } catch (error) {
+            console.error("Error al marcar falta justificada:", error);
+            throw error;
+        }
+    },
+
+    faltaInjustificada: async (id: number | string) => {
+        try {
+            const response = await api.patch(`/citas/falta-injustificada/${id}`);
+            return response.data;
+        } catch (error) {
+            console.error("Error al marcar falta injustificada:", error);
+            throw error;
+        }
+    },
 };
