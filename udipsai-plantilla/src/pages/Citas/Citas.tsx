@@ -139,7 +139,7 @@ const Calendar: React.FC = () => {
         description="Calendario de citas para especialistas y pacientes"
       />
       <div className="rounded-2xl border border-gray-200 bg-white dark:border-gray-800 dark:bg-white/[0.03] min-w-0">
-        <div className="w-full rounded-xl border border-gray-200 bg-white p-4">
+        <div className="w-fit min-w-full rounded-xl border border-gray-200 bg-white p-4">
 
           <div className="mb-4 flex items-center gap-4">
             <label className="text-sm font-medium text-gray-700 dark:text-gray-300">
@@ -180,8 +180,19 @@ const Calendar: React.FC = () => {
             events={events}
             selectable
             select={handleDateSelect}
+            selectAllow={(selectInfo) => {
+              // Allow month view selection (which is allDay) to trigger view change
+              if (selectInfo.allDay) return true;
+
+              // Calculate duration in milliseconds
+              const duration = selectInfo.end.getTime() - selectInfo.start.getTime();
+              // Allow only if duration is exactly 1 hour (3600000 ms)
+              return duration <= 3600000;
+            }}
             eventClick={handleEventClick}
             eventContent={renderEventContent}
+            slotDuration="01:00:00"
+            snapDuration="01:00:00"
             slotMinTime="08:00:00"
             slotMaxTime="17:00:00"
             allDaySlot={false}
