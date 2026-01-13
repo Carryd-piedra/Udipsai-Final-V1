@@ -1,0 +1,18 @@
+﻿
+> udipsai-front@0.1.0 build
+> tsc -b && vite build
+
+src/services/asignaciones.ts(1,17): error TS2307: Cannot find module '../api/api' or its corresponding type declarations.
+src/services/authService.ts(1,17): error TS2307: Cannot find module '../api/api' or its corresponding type declarations.
+src/services/citas.ts(1,17): error TS2307: Cannot find module '../api/api' or its corresponding type declarations.
+src/services/documentos.ts(1,17): error TS2307: Cannot find module '../api/api' or its corresponding type declarations.
+src/services/especialidades.ts(1,17): error TS2307: Cannot find module '../api/api' or its corresponding type declarations.
+src/services/especialistas.ts(1,17): error TS2307: Cannot find module '../api/api' or its corresponding type declarations.
+src/services/evaluaciones.ts(1,17): error TS2307: Cannot find module '../api/api' or its corresponding type declarations.
+src/services/fichas.ts(1,17): error TS2307: Cannot find module '../api/api' or its corresponding type declarations.
+src/services/instituciones.ts(1,17): error TS2307: Cannot find module '../api/api' or its corresponding type declarations.
+src/services/pacientes.ts(1,17): error TS2307: Cannot find module '../api/api' or its corresponding type declarations.
+src/services/pasantes.ts(1,17): error TS2307: Cannot find module '../api/api' or its corresponding type declarations.
+src/services/recursos.ts(1,17): error TS2307: Cannot find module '../api/api' or its corresponding type declarations.
+src/services/sedes.ts(1,17): error TS2307: Cannot find module '../api/api' or its corresponding type declarations.
+src/services/seguimientos.ts(1,17): error TS2307: Cannot find module '../api/api' or its corresponding type declarations.
