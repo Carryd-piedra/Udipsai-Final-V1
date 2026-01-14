@@ -21,11 +21,19 @@ interface CalendarEvent extends EventInput {
 
 const Calendar: React.FC = () => {
   const [events, setEvents] = useState<CalendarEvent[]>([]);
+  const [currentView, setCurrentView] = useState("dayGridMonth"); // Track current view
   const [modalInitialDate, setModalInitialDate] = useState("");
   const [modalInitialTime, setModalInitialTime] = useState("");
   const [modalInitialDuration, setModalInitialDuration] = useState(1);
 
   const [specialties, setSpecialties] = useState<any[]>([]);
+  // ... (lines 28-278 remain unchanged, but skipping for brevity in replacement if not modifying logic)
+  // I must include enough context or use MULTI replace.
+  // Let's use standard replacement for the component start and then multi replace for the rest if needed.
+  // Actually, I can do it in one block if I am careful.
+  // But tracking state is at top, render is at bottom.
+  // I will use replace_file_content for the state initialization first.
+
   const [selectedSpecialtyId, setSelectedSpecialtyId] = useState<number | string>("");
   const [loading, setLoading] = useState(false);
 
@@ -48,6 +56,18 @@ const Calendar: React.FC = () => {
 
   useEffect(() => {
     loadEvents();
+  }, [selectedSpecialtyId]);
+
+  // Auto-refresh events every 4 hours (or configurable)
+  useEffect(() => {
+    if (!selectedSpecialtyId) return;
+
+    const intervalId = setInterval(() => {
+      console.log("Auto-refreshing events...");
+      loadEvents();
+    }, 4 * 60 * 60 * 1000); // 4 hours in milliseconds
+
+    return () => clearInterval(intervalId);
   }, [selectedSpecialtyId]);
 
   const loadSpecialties = async () => {
@@ -270,10 +290,11 @@ const Calendar: React.FC = () => {
             initialView="dayGridMonth"
             locale={esLocale}
             headerToolbar={{
-              left: "prev,next addEventButton",
+              left: currentView === 'timeGridWeek' ? "prev,next" : "prev,next addEventButton",
               center: "title",
               right: "dayGridMonth,timeGridWeek",
             }}
+            datesSet={(arg) => setCurrentView(arg.view.type)}
             events={events}
             selectable
             select={handleDateSelect}
@@ -282,11 +303,9 @@ const Calendar: React.FC = () => {
               // Allow month view selection (which is allDay) to trigger view change
               if (selectInfo.allDay) return true;
 
-              // Prevent past dates
-              // Create date at 00:00:00 today
-              const today = new Date();
-              today.setHours(0, 0, 0, 0);
-              if (selectInfo.start < today) return false;
+              // Prevent past dates STRICTLY
+              const now = new Date();
+              if (selectInfo.start < now) return false;
 
               // Only limit: Cannot span multiple days
               const startDay = selectInfo.start.getDate();
@@ -362,10 +381,10 @@ const renderEventContent = (eventInfo: any) => {
     >
       <div className="flex items-center">
         <div className="fc-daygrid-event-dot"></div>
-        <div className="fc-event-time font-bold">{eventInfo.timeText}</div>
+        <div className="fc-event-time !font-extrabold !text-gray-900">{eventInfo.timeText}</div>
       </div>
-      <div className="fc-event-title font-medium">{eventInfo.event.title}</div>
-      <div className="text-[10px] uppercase tracking-wide opacity-90 mt-0.5">
+      <div className="fc-event-title font-medium !text-gray-900">{eventInfo.event.title}</div>
+      <div className="text-[10px] uppercase tracking-wide opacity-90 mt-0.5 !text-gray-700">
         {eventInfo.event.extendedProps.status}
       </div>
     </div>
