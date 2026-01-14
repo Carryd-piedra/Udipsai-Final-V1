@@ -125,34 +125,38 @@ const CitaModal: React.FC<CitaModalProps> = ({
 
     const handleTimeSelect = (time: string) => {
         setStartTime(time);
-        // Only reset duration if not set by initial props recently (handy logic, but for now strict reset to 1 is annoying if coming from calendar)
-        // Better: let duration stay if valid, or just simple state update.
-        // If I keep simple setDuration(1), it overrides the calendar selection if I click a time in the modal.
-        // User wants "if I select 13:00, block morning".
-        // Let's remove the auto-reset to 1, let the user manually change it if needed, or keep current duration.
-        // setDuration(1); <--- REMOVED
+        setDuration(1); // Reset duration to 1 to ensure user re-selects valid duration for this new slot
     };
 
     const getMaxDurationForTime = (time: string) => {
         const [startHour] = time.split(':').map(Number);
-        let maxDuration = 1;
 
-        // Define shift limit (end of day)
-        let limitHour = 17;
+        // Determine Shift Limit
+        let limitHour = 17; // Default end of day
+        if (startHour < 12) {
+            limitHour = 12; // Morning shift ends at 12
+        }
 
-        // Iterate from next hour until limit
+        let maxPossible = 1;
+
+        // We check from the NEXT hour onwards
+        // e.g. Start 09:00. Check 10:00. If 10:00 is free, max=2.
+        // Check 11:00. If 11:00 is free, max=3.
+
         for (let h = startHour + 1; h < limitHour; h++) {
-            // Check if this next hour is available
             const checkTime = `${h.toString().padStart(2, '0')}:00`;
 
-            // If the next hour is NOT available (occupied), stop extending
+            // Critical: Check if this hour is in availableHours.
+            // If NOT available, we CANNOT extend duration through this hour.
             if (!availableHours.includes(checkTime)) {
                 break;
             }
-            maxDuration++;
+            maxPossible++;
         }
 
-        return maxDuration;
+        // Also clamp by absolute max of 4 if desired, though shifts usually naturaly limit it.
+        // But user requirement "hasta 4 horas"
+        return Math.min(maxPossible, 4);
     };
 
     const renderTimeSlot = (time: string) => {
@@ -175,13 +179,12 @@ const CitaModal: React.FC<CitaModalProps> = ({
         // Validation 1: Real Past Time (relative to Now)
         const isPast = slotDate < now;
 
-        // Validation 2: Before Initial Time (User Constraint)
-        // Only apply if we have an initialTime set (from calendar click)
-        const isBeforeInitial = initialTime ? time < initialTime : false;
+        // Validation 2: Before Initial Time (User Constraint) - Only if specifically needed, but usually we just block unavailable.
+        // const isBeforeInitial = initialTime ? time < initialTime : false; 
+        // Removing explicit "Before Initial" check as it restricts re-scheduling too much if not intended. 
+        // If user wants to check availability, they rely on 'availableHours'.
 
         // Validation 3: Shift Isolation
-        // If 11:00 (Morning) is selected, block Afternoon (13:00+)
-        // If 16:00 (Afternoon) is selected, block Morning (08:00-12:00)
         let isCrossShift = false;
         if (startTime) {
             const startH = parseInt(startTime.split(':')[0]);
@@ -195,24 +198,42 @@ const CitaModal: React.FC<CitaModalProps> = ({
             }
         }
 
-        const isAvailable = availableHours.includes(time) && !isPast && !isBeforeInitial && !isCrossShift;
-        const isSelected = startTime === time;
+        const isAvailable = availableHours.includes(time) && !isPast && !isCrossShift; // && !isBeforeInitial;
+
+        // Check if this slot is part of the currently selected duration
+        let isInDurationBlock = false;
+        if (startTime && duration > 1) {
+            const startH = parseInt(startTime.split(':')[0]);
+            const currentH = parseInt(time.split(':')[0]);
+            // It is in block if:
+            // 1. It is >= startTime
+            // 2. It is < startTime + duration
+            // 3. It is on the same shift (already checked by isCrossShift somewhat, but let's be explicit)
+
+            if (currentH >= startH && currentH < startH + duration) {
+                isInDurationBlock = true;
+            }
+        }
+
+        const isStart = startTime === time;
+        const isSelected = isStart || (isInDurationBlock && isAvailable);
 
         return (
             <button
                 key={time}
                 onClick={() => isAvailable && handleTimeSelect(time)}
                 disabled={!isAvailable}
-                className={`py-2 rounded text-sm transition border ${isSelected
-                    ? "bg-brand-500 text-white border-brand-600 shadow-md"
-                    : isAvailable
-                        ? "bg-white border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700"
-                        : "bg-gray-100 text-gray-400 border-gray-100 cursor-not-allowed text-opacity-60 decoration-slice dark:bg-gray-800/50 dark:border-gray-800 dark:text-gray-600"
+                className={`py-2 rounded text-sm transition border ${isStart
+                    ? "bg-brand-600 text-white border-brand-700 shadow-md font-bold"
+                    : isSelected
+                        ? "bg-brand-100 text-brand-800 border-brand-200 dark:bg-brand-900/30 dark:text-brand-200 dark:border-brand-700"
+                        : isAvailable
+                            ? "bg-white border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700"
+                            : "bg-gray-100 text-gray-400 border-gray-100 cursor-not-allowed text-opacity-60 decoration-slice dark:bg-gray-800/50 dark:border-gray-800 dark:text-gray-600"
                     }`}
                 title={
                     isPast ? "Hora ya pasada" :
-                        isBeforeInitial ? `Hora anterior a la seleccionada (${initialTime})` :
-                            (!availableHours.includes(time) ? "No disponible" : "")
+                        (!availableHours.includes(time) ? "No disponible" : "")
                 }
             >
                 {time}
