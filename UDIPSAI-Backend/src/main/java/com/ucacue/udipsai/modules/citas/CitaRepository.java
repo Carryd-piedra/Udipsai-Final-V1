@@ -45,8 +45,10 @@ public interface CitaRepository extends JpaRepository<CitaEntity, Long> {
         Page<CitaEntity> findCitasByFilter(@Param("idCita") Long idCita, @Param("fichaPaciente") Long fichaPaciente,
                         Pageable pageable);
 
-        @Query("SELECT c FROM CitaEntity c WHERE c.profesionalId = :profesionalId AND c.fecha = :fecha AND c.estado = 'PENDIENTE'")
+        @Query("SELECT c FROM CitaEntity c WHERE c.profesionalId = :profesionalId AND c.fecha = :fecha AND c.estado != 'CANCELADA'")
         List<CitaEntity> findCitasOcupadasByProfesionalAndFecha(Long profesionalId, LocalDate fecha);
+
+        List<CitaEntity> findAllByEstadoAndFechaBefore(CitaEntity.Estado estado, LocalDate fecha);
 
         // Obtener citas por filtro.
         @Query("SELECT c FROM CitaEntity c WHERE " +

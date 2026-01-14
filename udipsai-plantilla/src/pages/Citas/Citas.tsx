@@ -33,6 +33,11 @@ const Calendar: React.FC = () => {
   const [selectedEvent, setSelectedEvent] = useState<any>(null);
   const [showInfoModal, setShowInfoModal] = useState(false);
 
+  // Rescheduling State
+  const [reschedulingId, setReschedulingId] = useState<string | number | undefined>(undefined);
+  const [initialPatient, setInitialPatient] = useState<any>(null);
+  const [initialSpecialist, setInitialSpecialist] = useState<any>(null);
+
   const calendarRef = useRef<FullCalendar>(null);
   const { isOpen, openModal, closeModal } = useModal();
 
@@ -75,7 +80,11 @@ const Calendar: React.FC = () => {
       }
       console.log("Data to map:", data);
 
-      console.log("Data to map:", data);
+      // DEBUG: Inspect status of first few items
+      if (data && data.length > 0) {
+        console.log("SAMPLE ITEM STATUS:", data[0].estado);
+        data.forEach((d: any) => console.log(`Cita ${d.citaId} status: ${d.estado}`));
+      }
 
       const mappedEvents: CalendarEvent[] = data
         .filter((cita: any) => cita.estado !== 'CANCELADA')
@@ -109,9 +118,10 @@ const Calendar: React.FC = () => {
 
   const getStatusColor = (status: string) => {
     switch (status) {
-      case 'PENDIENTE': return 'Warning'; // Orange/Yellow
-      case 'FINALIZADA': return 'Success'; // Green
-      case 'CANCELADA': return 'Danger'; // Red
+      case 'PENDIENTE': return 'Warning'; // Orange
+      case 'ASISTIDO': return 'Success'; // Green
+      case 'NO_ASISTIDO': return 'Danger'; // Red
+      case 'CANCELADA': return 'Danger'; // Red (Filtered out usually)
       default: return 'Primary';
     }
   };
@@ -138,6 +148,11 @@ const Calendar: React.FC = () => {
     const durationMs = selectInfo.end.getTime() - selectInfo.start.getTime();
     const durationHours = Math.round(durationMs / 3600000);
     setModalInitialDuration(durationHours > 0 ? durationHours : 1);
+
+    // Reset rescheduling state
+    setReschedulingId(undefined);
+    setInitialPatient(null);
+    setInitialSpecialist(null);
 
     openModal();
   };
@@ -173,9 +188,41 @@ const Calendar: React.FC = () => {
     }
   };
 
-  const handleRescheduleCita = (id: string) => {
-    // Implement rescheduling logic or navigation
-    toast.custom("Funcionalidad de reagendar próximamente");
+  const handleRescheduleCita = async (id: string) => {
+    try {
+      setLoading(true);
+      const cita = await citasService.obtenerPorId(id);
+
+      setShowInfoModal(false);
+      setReschedulingId(id);
+
+      // Populate modal data
+      // Date and Time
+      const [day, month, year] = cita.fecha.split('-').map(Number);
+      const dateStr = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+
+      setModalInitialDate(dateStr);
+      setModalInitialTime(cita.horaInicio.substring(0, 5));
+
+      // Calculate Duration
+      // Assume simple logic or default 1 hour if not calculable from provided strings easily without momentjs
+      // Backend provides horaInicio and horaFin.
+      // Let's rely on standard 1 hour or calculate.
+      const startH = parseInt(cita.horaInicio.split(':')[0]);
+      const endH = parseInt(cita.horaFin.split(':')[0]);
+      const duration = endH - startH;
+      setModalInitialDuration(duration > 0 ? duration : 1);
+
+      setInitialPatient(cita.paciente); // Assuming DTO structure from backend
+      setInitialSpecialist(cita.especialista); // Assuming DTO structure
+
+      openModal();
+    } catch (error) {
+      console.error("Error fetching cita for reschedule", error);
+      toast.error("Error al cargar datos para reagendar");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -235,8 +282,11 @@ const Calendar: React.FC = () => {
               // Allow month view selection (which is allDay) to trigger view change
               if (selectInfo.allDay) return true;
 
-              // Calculate duration in milliseconds
-              const duration = selectInfo.end.getTime() - selectInfo.start.getTime();
+              // Prevent past dates
+              // Create date at 00:00:00 today
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              if (selectInfo.start < today) return false;
 
               // Only limit: Cannot span multiple days
               const startDay = selectInfo.start.getDate();
@@ -268,10 +318,9 @@ const Calendar: React.FC = () => {
                     toast.error("Seleccione una especialidad primero");
                     return;
                   }
-                  setModalInitialDate(new Date().toISOString().split("T")[0]);
-                  setModalInitialTime("08:00");
-                  setModalInitialDuration(1);
-                  openModal();
+
+                  const calendarApi = calendarRef.current?.getApi();
+                  calendarApi?.changeView("timeGridWeek");
                 },
               },
             }}
@@ -286,6 +335,9 @@ const Calendar: React.FC = () => {
         initialDuration={modalInitialDuration}
         onSave={handleSaveCita}
         fixedSpecialtyId={selectedSpecialtyId ? Number(selectedSpecialtyId) : undefined}
+        appointmentId={reschedulingId}
+        initialPatient={initialPatient}
+        initialSpecialist={initialSpecialist}
       />
 
       <CitaInfoModal
@@ -306,11 +358,16 @@ const renderEventContent = (eventInfo: any) => {
 
   return (
     <div
-      className={`event-fc-color flex fc-event-main ${colorClass} p-1 rounded-sm`}
+      className={`event-fc-color flex flex-col fc-event-main ${colorClass} p-1 rounded-sm`}
     >
-      <div className="fc-daygrid-event-dot"></div>
-      <div className="fc-event-time">{eventInfo.timeText}</div>
-      <div className="fc-event-title">{eventInfo.event.title}</div>
+      <div className="flex items-center">
+        <div className="fc-daygrid-event-dot"></div>
+        <div className="fc-event-time font-bold">{eventInfo.timeText}</div>
+      </div>
+      <div className="fc-event-title font-medium">{eventInfo.event.title}</div>
+      <div className="text-[10px] uppercase tracking-wide opacity-90 mt-0.5">
+        {eventInfo.event.extendedProps.status}
+      </div>
     </div>
   );
 };

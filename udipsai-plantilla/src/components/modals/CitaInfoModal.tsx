@@ -90,9 +90,16 @@ const CitaInfoModal: React.FC<CitaInfoModalProps> = ({
 
                         <div>
                             <label className="text-xs font-semibold text-gray-400 uppercase">Estado</label>
-                            <p className="text-sm text-gray-700 dark:text-gray-300">
-                                {extendedProps.status || 'PENDIENTE'}
-                            </p>
+                            <div className="mt-1">
+                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium uppercase
+                                    ${extendedProps.status === 'PENDIENTE' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300' :
+                                        extendedProps.status === 'ASISTIDO' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
+                                            extendedProps.status === 'NO_ASISTIDO' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' :
+                                                'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300'
+                                    }`}>
+                                    {extendedProps.status || 'PENDIENTE'}
+                                </span>
+                            </div>
                         </div>
                     </div>
 
@@ -100,10 +107,11 @@ const CitaInfoModal: React.FC<CitaInfoModalProps> = ({
                         <Button
                             variant="outline"
                             onClick={() => onReschedule(cita.id)}
-                            disabled={loading}
+                            disabled={loading || (extendedProps.status !== 'PENDIENTE' && extendedProps.status !== 'NO_ASISTIDO')}
                         >
                             Reagendar
                         </Button>
+
                         <Button
                             variant="danger"
                             onClick={handleDeleteClick}
