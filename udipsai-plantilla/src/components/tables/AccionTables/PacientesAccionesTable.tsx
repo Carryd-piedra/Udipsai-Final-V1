@@ -416,7 +416,7 @@ export default function PacientesAccionesTable() {
                       {paciente.numeroCelular}
                     </TableCell>
                     <TableCell className="px-5 py-3 text-center text-theme-xs text-gray-700 dark:text-gray-300">
-                      {paciente.sede.nombre}
+                      {paciente.sede?.nombre || "Sin Sede"}
                     </TableCell>
                     <TableCell className="px-5 py-3 text-center text-theme-xs text-gray-700 dark:text-gray-300">
                       <Badge size="sm" color={getEstadoBadge(paciente.activo)}>

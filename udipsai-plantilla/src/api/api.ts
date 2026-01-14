@@ -2,7 +2,7 @@ import axios from "axios";
 
 // Configuración base de Axios
 const api = axios.create({
-    baseURL: "http://localhost:8080/api", // Ajusta según tu backend
+    baseURL: "http://localhost:8081/api", // Ajusta según tu backend
 
 });
 
