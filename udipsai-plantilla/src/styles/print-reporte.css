@@ -1,0 +1,130 @@
+/* Estilos para impresión del reporte de citas */
+
+@media print {
+  /* Ocultar elementos no necesarios en impresión */
+  .print-hidden,
+  nav,
+  header,
+  footer,
+  .sidebar,
+  button,
+  .no-print {
+    display: none !important;
+  }
+
+  /* Resetear el body para impresión */
+  body {
+    background: white !important;
+    color: black !important;
+    font-family: 'Times New Roman', serif;
+    font-size: 12pt;
+    line-height: 1.5;
+  }
+
+  /* Configuración de página */
+  @page {
+    size: A4;
+    margin: 2cm;
+  }
+
+  /* Contenedor principal del reporte */
+  #reporte-contenido {
+    width: 100%;
+    max-width: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  /* Encabezado del reporte */
+  .reporte-header {
+    text-align: center;
+    margin-bottom: 2cm;
+    border-bottom: 2px solid #000;
+    padding-bottom: 0.5cm;
+  }
+
+  .reporte-header h1 {
+    font-size: 18pt;
+    font-weight: bold;
+    margin-bottom: 0.3cm;
+  }
+
+  /* Información del paciente */
+  .paciente-info {
+    background-color: #f5f5f5 !important;
+    padding: 0.5cm;
+    margin-bottom: 1cm;
+    border: 1px solid #ddd;
+  }
+
+  .paciente-info h2 {
+    font-size: 14pt;
+    font-weight: bold;
+    margin-bottom: 0.3cm;
+  }
+
+  .paciente-info p {
+    margin: 0.2cm 0;
+  }
+
+  /* Tabla de citas */
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    page-break-inside: auto;
+    margin-bottom: 1cm;
+  }
+
+  thead {
+    display: table-header-group;
+  }
+
+  tfoot {
+    display: table-footer-group;
+  }
+
+  tr {
+    page-break-inside: avoid;
+    page-break-after: auto;
+  }
+
+  th {
+    background-color: #e0e0e0 !important;
+    color: #000 !important;
+    font-weight: bold;
+    padding: 0.3cm;
+    border: 1px solid #000;
+    text-align: left;
+  }
+
+  td {
+    padding: 0.25cm;
+    border: 1px solid #999;
+  }
+
+  /* Pie del reporte */
+  .reporte-footer {
+    margin-top: 2cm;
+    padding-top: 0.5cm;
+    border-top: 1px solid #999;
+    text-align: center;
+    font-size: 10pt;
+  }
+
+  /* Evitar saltos de página no deseados */
+  h1, h2, h3, h4, h5, h6 {
+    page-break-after: avoid;
+  }
+
+  /* Asegurar que las filas no se corten */
+  tbody tr {
+    page-break-inside: avoid;
+  }
+}
+
+/* Estilos para pantalla */
+@media screen {
+  .print-only {
+    display: none !important;
+  }
+}
