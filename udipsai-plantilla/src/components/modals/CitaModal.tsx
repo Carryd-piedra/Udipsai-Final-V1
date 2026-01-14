@@ -179,10 +179,9 @@ const CitaModal: React.FC<CitaModalProps> = ({
         // Validation 1: Real Past Time (relative to Now)
         const isPast = slotDate < now;
 
-        // Validation 2: Before Initial Time (User Constraint) - Only if specifically needed, but usually we just block unavailable.
-        // const isBeforeInitial = initialTime ? time < initialTime : false; 
-        // Removing explicit "Before Initial" check as it restricts re-scheduling too much if not intended. 
-        // If user wants to check availability, they rely on 'availableHours'.
+        // Validation 2: Before Initial Time (User Constraint)
+        // Only apply if we have an initialTime set (from calendar click)
+        const isBeforeInitial = initialTime ? time < initialTime : false;
 
         // Validation 3: Shift Isolation
         let isCrossShift = false;
@@ -223,17 +222,16 @@ const CitaModal: React.FC<CitaModalProps> = ({
                 key={time}
                 onClick={() => isAvailable && handleTimeSelect(time)}
                 disabled={!isAvailable}
-                className={`py-2 rounded text-sm transition border ${isStart
+                className={`py-2 rounded text-sm transition border ${isSelected
                     ? "bg-brand-600 text-white border-brand-700 shadow-md font-bold"
-                    : isSelected
-                        ? "bg-brand-100 text-brand-800 border-brand-200 dark:bg-brand-900/30 dark:text-brand-200 dark:border-brand-700"
-                        : isAvailable
-                            ? "bg-white border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700"
-                            : "bg-gray-100 text-gray-400 border-gray-100 cursor-not-allowed text-opacity-60 decoration-slice dark:bg-gray-800/50 dark:border-gray-800 dark:text-gray-600"
+                    : isAvailable
+                        ? "bg-white border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700"
+                        : "bg-gray-100 text-gray-400 border-gray-100 cursor-not-allowed text-opacity-60 decoration-slice dark:bg-gray-800/50 dark:border-gray-800 dark:text-gray-600"
                     }`}
                 title={
                     isPast ? "Hora ya pasada" :
-                        (!availableHours.includes(time) ? "No disponible" : "")
+                        isBeforeInitial ? `Hora anterior a la seleccionada (${initialTime})` :
+                            (!availableHours.includes(time) ? "No disponible" : "")
                 }
             >
                 {time}
@@ -312,34 +310,48 @@ const CitaModal: React.FC<CitaModalProps> = ({
                             Paciente
                         </label>
                         <div className="flex gap-2">
-                            <input
-                                type="text"
-                                readOnly
-                                disabled
-                                value={
-                                    selectedPatient
-                                        ? `${selectedPatient.nombresApellidos || selectedPatient.nombres + ' ' + selectedPatient.apellidos} - ${selectedPatient.cedula}`
-                                        : "Ningún paciente seleccionado"
-                                }
-                                className={`flex-1 px-3 py-2.5 rounded-lg border text-sm ${selectedPatient
-                                    ? "bg-green-50 border-green-200 text-green-800"
-                                    : "bg-gray-100 border-gray-200 text-gray-500"
-                                    }`}
-                            />
-                            <button
+                            <div className="flex-1 flex gap-2">
+                                <input
+                                    type="text"
+                                    readOnly
+                                    disabled
+                                    value={
+                                        selectedPatient
+                                            ? `${selectedPatient.nombresApellidos || selectedPatient.nombres + ' ' + selectedPatient.apellidos} - ${selectedPatient.cedula}`
+                                            : "Ningún paciente seleccionado"
+                                    }
+                                    className={`flex-1 px-3 py-2.5 rounded-lg border text-sm ${selectedPatient
+                                        ? "bg-green-50 border-green-200 text-green-800"
+                                        : "bg-gray-100 border-gray-200 text-gray-500"
+                                        }`}
+                                />
+                                {selectedPatient && (
+                                    <button
+                                        onClick={() => setSelectedPatient(null)}
+                                        className="p-2.5 rounded-lg border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 transition"
+                                        title="Quitar paciente"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                )}
+                            </div>
+                            <Button
+                                variant="outline"
                                 onClick={() => setShowPatientModal(true)}
-                                className="px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition whitespace-nowrap"
+                                className="whitespace-nowrap"
                             >
-                                Buscar Paciente
-                            </button>
+                                Buscar
+                            </Button>
 
                             {hasPermission("PERM_PACIENTES") && (
                                 <button
                                     onClick={() => navigate("/pacientes/nuevo")}
-                                    className="px-4 py-2.5 bg-green-600 text-white rounded-lg hover:bg-green-700 transition whitespace-nowrap"
+                                    className="px-4 py-2.5 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition whitespace-nowrap font-medium shadow-sm"
                                     title="Crear Nuevo Paciente"
                                 >
-                                    + Crear
+                                    Crear Paciente
                                 </button>
                             )}
                         </div>
@@ -351,26 +363,40 @@ const CitaModal: React.FC<CitaModalProps> = ({
                             Especialista
                         </label>
                         <div className="flex gap-2">
-                            <input
-                                type="text"
-                                readOnly
-                                disabled
-                                value={
-                                    selectedSpecialist
-                                        ? `${selectedSpecialist.nombresApellidos || selectedSpecialist.nombres + ' ' + selectedSpecialist.apellidos} - ${selectedSpecialist.especialidad?.area || 'Sin esp.'}`
-                                        : "Ningún especialista seleccionado"
-                                }
-                                className={`flex-1 px-3 py-2.5 rounded-lg border text-sm ${selectedSpecialist
-                                    ? "bg-green-50 border-green-200 text-green-800"
-                                    : "bg-gray-100 border-gray-200 text-gray-500"
-                                    }`}
-                            />
-                            <button
+                            <div className="flex-1 flex gap-2">
+                                <input
+                                    type="text"
+                                    readOnly
+                                    disabled
+                                    value={
+                                        selectedSpecialist
+                                            ? `${selectedSpecialist.nombresApellidos || selectedSpecialist.nombres + ' ' + selectedSpecialist.apellidos} - ${selectedSpecialist.especialidad?.area || 'Sin esp.'}`
+                                            : "Ningún especialista seleccionado"
+                                    }
+                                    className={`flex-1 px-3 py-2.5 rounded-lg border text-sm ${selectedSpecialist
+                                        ? "bg-green-50 border-green-200 text-green-800"
+                                        : "bg-gray-100 border-gray-200 text-gray-500"
+                                        }`}
+                                />
+                                {selectedSpecialist && (
+                                    <button
+                                        onClick={() => setSelectedSpecialist(null)}
+                                        className="p-2.5 rounded-lg border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 transition"
+                                        title="Quitar especialista"
+                                    >
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" strokeWidth={1.5} stroke="currentColor" className="w-5 h-5">
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                        </svg>
+                                    </button>
+                                )}
+                            </div>
+                            <Button
+                                variant="outline"
                                 onClick={() => setShowSpecialistModal(true)}
-                                className="px-4 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition whitespace-nowrap"
+                                className="whitespace-nowrap"
                             >
-                                Buscar Especialista
-                            </button>
+                                Buscar
+                            </Button>
                         </div>
                     </div>
 
@@ -482,7 +508,8 @@ const CitaModal: React.FC<CitaModalProps> = ({
                         </Button>
                         <Button
                             onClick={handleSubmit}
-                            disabled={loading}
+                            disabled={loading || !selectedPatient || !selectedSpecialist || !startTime}
+                            title={(!selectedPatient || !selectedSpecialist || !startTime) ? "Complete todos los campos requeridos" : "Agendar Cita"}
                         >
                             {loading ? "Guardando..." : "Guardar Cita"}
                         </Button>
