@@ -18,4 +18,5 @@ public class RegistrarCitaDTO {
     private Long especialidadId; // Antes areaId
     private LocalDate fecha;
     private LocalTime hora;
+    private Integer duracionMinutes; // Duration in minutes (e.g., 60, 120, 180)
 }

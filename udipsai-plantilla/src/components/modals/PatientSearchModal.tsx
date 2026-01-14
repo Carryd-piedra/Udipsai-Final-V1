@@ -96,7 +96,7 @@ const PatientSearchModal: React.FC<PatientSearchModalProps> = ({
                                     className="border-b border-gray-200 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-800"
                                 >
                                     <td className="p-3 text-gray-800 dark:text-gray-200">
-                                        {patient.nombres} {patient.apellidos}
+                                        {patient.nombresApellidos}
                                     </td>
                                     <td className="p-3 text-gray-600 dark:text-gray-400">
                                         {patient.cedula}
