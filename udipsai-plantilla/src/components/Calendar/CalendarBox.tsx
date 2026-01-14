@@ -8,13 +8,7 @@ import { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { citasService } from '../../services/citas';
 import { especialistasService } from '../../services/especialistas';
-
-// Icons for the modal
-const CloseIcon = () => (
-    <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-    </svg>
-);
+import CitaInfoModal from '../modals/CitaInfoModal';
 
 const CalendarBox = () => {
     const { userIdentity } = useAuth();
@@ -57,27 +51,36 @@ const CalendarBox = () => {
                 };
 
                 const formattedEvents = citasData.map((cita: any) => {
-                    let color = '#3B82F6'; // Azul (Pendiente)
-                    if (cita.estado === 'FINALIZADA') color = '#10B981'; // Verde
-                    if (cita.estado === 'CANCELADA') color = '#EF4444'; // Rojo
-                    else if (cita.estado === 'FALTA_JUSTIFICADA') color = '#F59E0B'; // Naranja
-                    else if (cita.estado === 'FALTA_INJUSTIFICADA') color = '#6B7280'; // Gris
+                    // Use classNames for better control with Tailwind
+                    let classNames = ['text-white', 'border-0'];
+
+                    if (cita.estado === 'FINALIZADA' || cita.estado === 'ASISTIDO') {
+                        classNames.push('!bg-green-500', '!border-green-500');
+                    } else if (cita.estado === 'CANCELADA') {
+                        classNames.push('!bg-red-500', '!border-red-500');
+                    } else if (cita.estado === 'FALTA_JUSTIFICADA') {
+                        classNames.push('!bg-orange-500', '!border-orange-500');
+                    } else if (cita.estado === 'FALTA_INJUSTIFICADA' || cita.estado === 'NO_ASISTIDO') {
+                        classNames.push('!bg-red-500', '!border-red-500');
+                    } else {
+                        classNames.push('!bg-blue-500', '!border-blue-500'); // Default Pendiente
+                    }
 
                     const fechaISO = parseDate(cita.fecha);
 
                     return {
-                        id: cita.citaId || cita.id, // Ensure ID is present
+                        id: cita.citaId || cita.id,
                         title: `${cita.horaInicio ? cita.horaInicio.substring(0, 5) : ''} - ${cita.paciente?.nombresApellidos || 'Paciente'}`,
                         start: `${fechaISO}T${cita.horaInicio}`,
                         end: `${fechaISO}T${cita.horaFin}`,
-                        backgroundColor: color,
-                        borderColor: color,
+                        classNames: classNames, // Pass classNames instead of inline styles
+                        textColor: '#ffffff',
                         extendedProps: {
-                            originalId: cita.citaId || cita.id, // Explicitly keep original ID
-                            estado: cita.estado,
+                            originalId: cita.citaId || cita.id,
+                            status: cita.estado,
+                            specialty: cita.especialidad?.area || cita.especialidad?.nombre || "General",
+                            specialist: cita.especialista?.nombresApellidos || "Sin Asignar",
                             paciente: cita.paciente,
-                            especialidad: cita.especialidad,
-                            especialista: cita.especialista,
                             fullDate: cita.fecha,
                             fullTimeCheck: `${cita.horaInicio} - ${cita.horaFin}`
                         }
@@ -91,22 +94,37 @@ const CalendarBox = () => {
         };
 
         fetchCitas();
-    }, [userIdentity]);
+    }, [userIdentity, isModalOpen]); // Reload when modal closes to refresh status
 
     const handleEventClick = (info: any) => {
         const eventData = {
             id: info.event.id,
-            ...info.event.extendedProps,
-            title: info.event.title
+            title: info.event.title,
+            start: info.event.start,
+            end: info.event.end,
+            extendedProps: { ...info.event.extendedProps }
         };
-        console.log("Evento seleccionado:", eventData); // Debug log
+        console.log("Evento seleccionado:", eventData);
         setSelectedEvent(eventData);
         setIsModalOpen(true);
     };
 
-    const closeModal = () => {
-        setIsModalOpen(false);
-        setSelectedEvent(null);
+    const handleMarkAsAttended = async (id: string) => {
+        try {
+            await citasService.finalizar(id);
+            // Refresh logic handled by useEffect dependency
+        } catch (error) {
+            console.error("Error marking as attended", error);
+        }
+    };
+
+    const handleMarkAsNotAttended = async (id: string) => {
+        try {
+            await citasService.marcarFalta(id);
+            // Refresh logic handled by useEffect dependency
+        } catch (error) {
+            console.error("Error marking as not attended", error);
+        }
     };
 
     return (
@@ -143,69 +161,16 @@ const CalendarBox = () => {
                 />
             </div>
 
-            {/* Modal de Detalles */}
-            {isModalOpen && selectedEvent && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-                    <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl w-full max-w-4xl overflow-hidden transform transition-all scale-100">
-                        <div className="flex justify-between items-center p-6">
-                            <h4 className="text-xl font-bold text-gray-900 dark:text-white">
-                                Detalles de la Cita
-                            </h4>
-                            <button onClick={closeModal} className="text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200">
-                                <CloseIcon />
-                            </button>
-                        </div>
-                        <div className="p-8 space-y-6">
-                            <div className="space-y-2">
-                                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Paciente</p>
-                                <p className="text-lg font-semibold text-gray-900 dark:text-white">
-                                    {selectedEvent.paciente?.nombresApellidos || selectedEvent.paciente?.nombres || 'No disponible'}
-                                </p>
-                                <p className="text-sm text-gray-500">{selectedEvent.paciente?.cedula}</p>
-                            </div>
-
-                            <div className="grid grid-cols-2 gap-4">
-                                <div>
-                                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Fecha</p>
-                                    <p className="text-base text-gray-900 dark:text-white">{selectedEvent.fullDate}</p>
-                                </div>
-                                <div>
-                                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Horario</p>
-                                    <p className="text-base text-gray-900 dark:text-white">
-                                        {selectedEvent.fullTimeCheck}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div>
-                                <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Estado</p>
-                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium 
-                                    ${selectedEvent.estado === 'PENDIENTE' ? 'bg-blue-100 text-blue-800 dark:bg-blue-900 dark:text-blue-300' :
-                                        selectedEvent.estado === 'FINALIZADA' ? 'bg-green-100 text-green-800 dark:bg-green-900 dark:text-green-300' :
-                                            selectedEvent.estado === 'CANCELADA' ? 'bg-red-100 text-red-800 dark:bg-red-900 dark:text-red-300' :
-                                                'bg-gray-100 text-gray-800 dark:bg-gray-700 dark:text-gray-300'}`}>
-                                    {selectedEvent.estado}
-                                </span>
-                            </div>
-
-                            {selectedEvent.especialidad && (
-                                <div>
-                                    <p className="text-sm font-medium text-gray-500 dark:text-gray-400">Especialidad</p>
-                                    <p className="text-base text-gray-900 dark:text-white">{selectedEvent.especialidad.area}</p>
-                                </div>
-                            )}
-                        </div>
-                        <div className="p-4 bg-gray-50 dark:bg-gray-700 flex justify-end">
-                            <button
-                                onClick={closeModal}
-                                className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition"
-                            >
-                                Cerrar
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            )}
+            <CitaInfoModal
+                isOpen={isModalOpen}
+                onClose={() => {
+                    setIsModalOpen(false);
+                    setSelectedEvent(null);
+                }}
+                cita={selectedEvent}
+                onMarkAsAttended={handleMarkAsAttended}
+                onMarkAsNotAttended={handleMarkAsNotAttended}
+            />
         </div>
     );
 };

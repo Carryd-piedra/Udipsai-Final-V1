@@ -6,8 +6,10 @@ interface CitaInfoModalProps {
     isOpen: boolean;
     onClose: () => void;
     cita: any; // Event/Cita object
-    onDelete: (id: string) => Promise<void>;
-    onReschedule: (id: string) => void;
+    onDelete?: (id: string) => Promise<void>;
+    onReschedule?: (id: string) => void;
+    onMarkAsAttended?: (id: string) => Promise<void>;
+    onMarkAsNotAttended?: (id: string) => Promise<void>;
 }
 
 const CitaInfoModal: React.FC<CitaInfoModalProps> = ({
@@ -16,6 +18,8 @@ const CitaInfoModal: React.FC<CitaInfoModalProps> = ({
     cita,
     onDelete,
     onReschedule,
+    onMarkAsAttended,
+    onMarkAsNotAttended,
 }) => {
     const [loading, setLoading] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
@@ -27,6 +31,7 @@ const CitaInfoModal: React.FC<CitaInfoModalProps> = ({
     };
 
     const confirmDelete = async () => {
+        if (!onDelete) return;
         setLoading(true);
         try {
             await onDelete(cita.id);
@@ -39,7 +44,20 @@ const CitaInfoModal: React.FC<CitaInfoModalProps> = ({
         }
     };
 
+    const handleStatusChange = async (action: () => Promise<void>) => {
+        setLoading(true);
+        try {
+            await action();
+            onClose();
+        } catch (error) {
+            console.error("Error updating status", error);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const extendedProps = cita?.extendedProps || {};
+    const isPending = extendedProps.status === 'PENDIENTE';
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} className="max-w-md p-6">
@@ -93,8 +111,8 @@ const CitaInfoModal: React.FC<CitaInfoModalProps> = ({
                             <div className="mt-1">
                                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium uppercase
                                     ${extendedProps.status === 'PENDIENTE' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300' :
-                                        extendedProps.status === 'ASISTIDO' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
-                                            extendedProps.status === 'NO_ASISTIDO' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' :
+                                        extendedProps.status === 'ASISTIDO' || extendedProps.status === 'FINALIZADA' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
+                                            extendedProps.status === 'NO_ASISTIDO' || extendedProps.status === 'FALTA_INJUSTIFICADA' || extendedProps.status === 'CANCELADA' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' :
                                                 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300'
                                     }`}>
                                     {extendedProps.status || 'PENDIENTE'}
@@ -103,23 +121,45 @@ const CitaInfoModal: React.FC<CitaInfoModalProps> = ({
                         </div>
                     </div>
 
+                    {/* Botones de acción */}
                     <div className="flex justify-end gap-3 mt-6">
+                        {/* Mostrar Asistido si es PENDIENTE o NO ASISTIO (para corregir) */}
+                        {(extendedProps.status === 'PENDIENTE' ||
+                            extendedProps.status === 'FALTA_INJUSTIFICADA' ||
+                            extendedProps.status === 'NO_ASISTIDO') && onMarkAsAttended && (
+                                <Button
+                                    variant="primary"
+                                    className="!bg-green-600 hover:!bg-green-700 text-white"
+                                    onClick={() => handleStatusChange(() => onMarkAsAttended(cita.id))}
+                                    disabled={loading}
+                                >
+                                    Marcar Asistido
+                                </Button>
+                            )}
+
+                        {/* Mostrar No Asistio si es PENDIENTE o FINALIZADA (para corregir) */}
+                        {(extendedProps.status === 'PENDIENTE' ||
+                            extendedProps.status === 'FINALIZADA' ||
+                            extendedProps.status === 'ASISTIDO') && onMarkAsNotAttended && (
+                                <Button
+                                    variant="danger"
+                                    onClick={() => handleStatusChange(() => onMarkAsNotAttended(cita.id))}
+                                    disabled={loading}
+                                >
+                                    No Asistió
+                                </Button>
+                            )}
+
+                        {/* Boton Cerrar siempre visible si no hay acciones de gestion primaria */}
                         <Button
                             variant="outline"
-                            onClick={() => onReschedule(cita.id)}
-                            disabled={loading || (extendedProps.status !== 'PENDIENTE' && extendedProps.status !== 'NO_ASISTIDO')}
+                            onClick={onClose}
                         >
-                            Reagendar
-                        </Button>
-
-                        <Button
-                            variant="danger"
-                            onClick={handleDeleteClick}
-                            disabled={loading}
-                        >
-                            Cancelar Cita
+                            Cerrar
                         </Button>
                     </div>
+
+
                 </>
             ) : (
                 <div className="text-center py-4">
