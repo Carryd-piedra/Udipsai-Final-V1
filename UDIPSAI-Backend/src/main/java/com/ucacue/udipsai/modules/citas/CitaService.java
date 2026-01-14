@@ -251,7 +251,7 @@ public class CitaService {
                 .orElseThrow(() -> new EntityNotFoundException("Cita no encontrada"));
 
         if (citaEncontrada.getEstado() != CitaEntity.Estado.PENDIENTE
-                && citaEncontrada.getEstado() != CitaEntity.Estado.NO_ASISTIDO) {
+                && citaEncontrada.getEstado() != CitaEntity.Estado.FALTA_INJUSTIFICADA) {
             throw new IllegalArgumentException(
                     "La cita no se puede reagendar porque se encuentra finalizada o fue cancelada");
         }
@@ -423,15 +423,18 @@ public class CitaService {
         CitaEntity cita = citaRepo.findById(idCita)
                 .orElseThrow(() -> new EntityNotFoundException("Cita con id " + idCita + " no encontrada"));
 
-        if (cita.getEstado() != CitaEntity.Estado.PENDIENTE) {
+        if (cita.getEstado() != CitaEntity.Estado.PENDIENTE
+                && cita.getEstado() != CitaEntity.Estado.FALTA_INJUSTIFICADA) {
+            logger.error("Error al marcar FINALIZADA. Estado actual: " + cita.getEstado());
             throw new IllegalArgumentException(
-                    "La cita no se puede finalizar porque anteriormente ya ha finalizado o ya fue cancelada");
+                    "La cita no se puede finalizar porque anteriormente ya ha finalizado o ya fue cancelada. Estado actual: "
+                            + cita.getEstado());
         }
 
-        cita.setEstado(CitaEntity.Estado.ASISTIDO);
+        cita.setEstado(CitaEntity.Estado.FINALIZADA);
         citaRepo.save(cita);
-        logger.info("200 OK: Cita marcada como ASISTIDO correctamente");
-        CitaResponse citaResponse = new CitaResponse("Cita marcada como ASISTIDO correctamente");
+        logger.info("200 OK: Cita marcada como FINALIZADA correctamente");
+        CitaResponse citaResponse = new CitaResponse("Cita marcada como FINALIZADA correctamente");
         return ResponseEntity.ok().body(citaResponse);
 
     }
@@ -475,12 +478,14 @@ public class CitaService {
         CitaEntity cita = citaRepo.findById(idCita)
                 .orElseThrow(() -> new EntityNotFoundException("Cita con id " + idCita + " no encontrada"));
 
-        if (cita.getEstado() != CitaEntity.Estado.PENDIENTE && cita.getEstado() != CitaEntity.Estado.NO_ASISTIDO) {
+        if (cita.getEstado() != CitaEntity.Estado.PENDIENTE && cita.getEstado() != CitaEntity.Estado.FINALIZADA) {
+            logger.error("Error al marcar NO ASISTIDO. Estado actual: " + cita.getEstado());
             throw new IllegalArgumentException(
-                    "La cita no se puede asignar como NO ASISTIDO porque ya ha finalizado o ya fue cancelada");
+                    "La cita no se puede asignar como NO ASISTIDO porque ya ha finalizado o ya fue cancelada. Estado actual: "
+                            + cita.getEstado());
         }
 
-        cita.setEstado(CitaEntity.Estado.NO_ASISTIDO);
+        cita.setEstado(CitaEntity.Estado.FALTA_INJUSTIFICADA);
         citaRepo.save(cita);
         CitaResponse response = new CitaResponse("Cita asignada como NO ASISTIDO correctamente");
 
@@ -642,5 +647,21 @@ public class CitaService {
         Page<VistaCitasCompleta> citas = vistaCitasCompletaRepository.findByFichaPaciente(idPaciente, pageable);
         return new ResponseEntity<>(citas, HttpStatus.OK);
 
+    }
+
+    // Obtener Resumen Dashboard
+    @Transactional(readOnly = true)
+    public ResponseEntity<?> obtenerResumenDashboard(Long profesionalId) {
+        logger.info("obtenerResumenDashboard()");
+        logger.info("Obteniendo resumen dashboard para profesional {}", profesionalId);
+
+        long citasHoy = citaRepo.countByProfesionalIdAndFecha(profesionalId, LocalDate.now());
+        long pendientesTotales = citaRepo.countByProfesionalIdAndEstado(profesionalId, CitaEntity.Estado.PENDIENTE);
+
+        java.util.Map<String, Object> response = new java.util.HashMap<>();
+        response.put("citasHoy", citasHoy);
+        response.put("pendientesTotales", pendientesTotales);
+
+        return ResponseEntity.ok(response);
     }
 }
