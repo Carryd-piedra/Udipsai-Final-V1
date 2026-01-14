@@ -6,6 +6,7 @@ export interface RegistrarCitaDTO {
     especialidadId: number;
     fecha: string;
     hora: string;
+    duracionMinutes?: number;
 }
 
 export const citasService = {
@@ -47,6 +48,17 @@ export const citasService = {
             return response.data;
         } catch (error) {
             console.error("Error al obtener citas por especialidad:", error);
+            throw error;
+        }
+    },
+
+    eliminar: async (id: number | string) => {
+        try {
+            // Updated to use the correct PATCH endpoint for cancellation
+            const response = await api.patch(`/citas/cancelar/${id}`);
+            return response.data;
+        } catch (error) {
+            console.error("Error al cancelar la cita:", error);
             throw error;
         }
     },

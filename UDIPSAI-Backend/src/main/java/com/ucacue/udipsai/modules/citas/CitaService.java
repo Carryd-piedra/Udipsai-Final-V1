@@ -193,10 +193,41 @@ public class CitaService {
                     + dto.getFecha().toString() + " y hora " + dto.getHora().toString());
         }
 
+        // Validacion de Overlap (Solapamiento)
+        int duration = (dto.getDuracionMinutes() != null && dto.getDuracionMinutes() > 0)
+                ? dto.getDuracionMinutes()
+                : 60;
+        LocalTime newStart = dto.getHora();
+        LocalTime newEnd = newStart.plusMinutes(duration);
+
+        // Obtener todas las citas del profesional esa fecha para validar solapamiento
+        // real
+        List<CitaEntity> citasDia = citaRepo.findCitasOcupadasByProfesionalAndFecha(dto.getProfesionalId(),
+                dto.getFecha());
+
+        for (CitaEntity existing : citasDia) {
+            LocalTime existingStart = existing.getHoraInicio();
+            LocalTime existingEnd = existing.getHoraFin();
+
+            // Check if ranges overlap
+            // Overlap condition: (StartA < EndB) and (EndA > StartB)
+            if (newStart.isBefore(existingEnd) && newEnd.isAfter(existingStart)) {
+                throw new IllegalArgumentException(
+                        "Especialista " + especialista.getNombresApellidos().trim().toUpperCase()
+                                + " ya tiene una cita ocupada en el rango " + existingStart + " - " + existingEnd
+                                + " que conflicto con el nuevo horario " + newStart + " - " + newEnd);
+            }
+        }
+
+        // Validacion Paciente (Misma logica si necesario, pero principal es
+        // Especialista aqui)
+        // ... (Podriamos agregar check similar para Paciente si quisieramos estricto)
+
         CitaEntity cita = new CitaEntity();
         cita.setFecha(dto.getFecha());
         cita.setHoraInicio(dto.getHora());
-        cita.setHoraFin(dto.getHora().plusMinutes(60));
+        cita.setHoraFin(newEnd);
+
         cita.setEstado(CitaEntity.Estado.PENDIENTE);
         cita.setFichaPaciente(dto.getFichaPaciente());
         cita.setProfesionalId(dto.getProfesionalId());
@@ -353,7 +384,18 @@ public class CitaService {
             throw new EntityNotFoundException("Profesional con id " + profesionalId + " no encontrado");
         }
 
-        List<LocalTime> horasOcupadas = citaRepo.findHorasOcupadasByProfesionalAndFecha(profesionalId, fecha);
+        List<CitaEntity> citasOcupadas = citaRepo.findCitasOcupadasByProfesionalAndFecha(profesionalId, fecha);
+        List<LocalTime> horasOcupadas = new ArrayList<>();
+
+        for (CitaEntity cita : citasOcupadas) {
+            LocalTime start = cita.getHoraInicio();
+            LocalTime end = cita.getHoraFin();
+            while (start.isBefore(end)) {
+                horasOcupadas.add(start);
+                start = start.plusHours(1);
+            }
+        }
+
         List<String> horasLibres = new ArrayList<>();
 
         LocalTime horaInicio = LocalTime.of(8, 0);
