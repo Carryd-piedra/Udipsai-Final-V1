@@ -62,4 +62,44 @@ export const citasService = {
             throw error;
         }
     },
+
+    reagendar: async (id: number | string, cita: RegistrarCitaDTO) => {
+        try {
+            const response = await api.put(`/citas/reagendar/${id}`, cita);
+            return response.data;
+        } catch (error) {
+            console.error("Error al reagendar la cita:", error);
+            throw error;
+        }
+    },
+
+    obtenerPorId: async (id: number | string) => {
+        try {
+            const response = await api.get(`/citas/${id}`);
+            return response.data;
+        } catch (error) {
+            console.error("Error al obtener la cita:", error);
+            throw error;
+        }
+    },
+
+    finalizar: async (id: number | string) => {
+        try {
+            const response = await api.patch(`/citas/finalizar/${id}`);
+            return response.data;
+        } catch (error) {
+            console.error("Error al finalizar la cita:", error);
+            throw error;
+        }
+    },
+
+    marcarFalta: async (id: number | string) => {
+        try {
+            const response = await api.patch(`/citas/falta-injustificada/${id}`);
+            return response.data;
+        } catch (error) {
+            console.error("Error al marcar falta injustificada:", error);
+            throw error;
+        }
+    },
 };

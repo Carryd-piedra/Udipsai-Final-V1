@@ -72,11 +72,11 @@ public class CitaController {
         return citaServ.obtenerCitasPorEstado(CitaEntity.Estado.PENDIENTE, pageable, request);
     }
 
-    // Obtener citas con estado FINALIZADA.
+    // Obtener citas con estado ASISTIDO (Antes FINALIZADA).
     @GetMapping("/finalizadas")
     public ResponseEntity<Page<CitaDTO>> obtenerCitasFinalizadas(
             @PageableDefault(page = 0, size = 5) Pageable pageable, HttpServletRequest request) {
-        return citaServ.obtenerCitasPorEstado(CitaEntity.Estado.FINALIZADA, pageable, request);
+        return citaServ.obtenerCitasPorEstado(CitaEntity.Estado.ASISTIDO, pageable, request);
     }
 
     // Obtener citas con estado CANCELADA.

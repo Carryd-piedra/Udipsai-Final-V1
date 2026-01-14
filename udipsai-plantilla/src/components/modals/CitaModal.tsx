@@ -16,6 +16,9 @@ interface CitaModalProps {
     initialDuration?: number;
     onSave: () => void;
     fixedSpecialtyId?: number;
+    initialPatient?: any;
+    initialSpecialist?: any;
+    appointmentId?: string | number;
 }
 
 const CitaModal: React.FC<CitaModalProps> = ({
@@ -26,6 +29,9 @@ const CitaModal: React.FC<CitaModalProps> = ({
     initialDuration = 1,
     onSave,
     fixedSpecialtyId,
+    initialPatient,
+    initialSpecialist,
+    appointmentId,
 }) => {
     const navigate = useNavigate();
     const { hasPermission } = useAuth();
@@ -67,7 +73,9 @@ const CitaModal: React.FC<CitaModalProps> = ({
         } else {
             setStartTime("");
         }
-    }, [initialDate, initialTime, initialDuration, isOpen]);
+        if (initialPatient) setSelectedPatient(initialPatient);
+        if (initialSpecialist) setSelectedSpecialist(initialSpecialist);
+    }, [initialDate, initialTime, initialDuration, isOpen, initialPatient, initialSpecialist]);
 
     useEffect(() => {
         if (!isOpen) {
@@ -244,8 +252,13 @@ const CitaModal: React.FC<CitaModalProps> = ({
             };
             console.log("Sending payload:", payload);
 
-            await citasService.registrarCita(payload);
-            toast.success("Cita agendada exitosamente");
+            if (appointmentId) {
+                await citasService.reagendar(appointmentId, payload);
+                toast.success("Cita reagendada exitosamente");
+            } else {
+                await citasService.registrarCita(payload);
+                toast.success("Cita agendada exitosamente");
+            }
 
             // Reset fields
             setSelectedPatient(null);

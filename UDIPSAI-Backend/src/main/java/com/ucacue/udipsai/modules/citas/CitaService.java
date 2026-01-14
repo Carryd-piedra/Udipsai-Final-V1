@@ -23,6 +23,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.scheduling.annotation.Scheduled;
 
 import java.time.LocalDate;
 import java.time.LocalTime;
@@ -249,10 +250,10 @@ public class CitaService {
         CitaEntity citaEncontrada = citaRepo.findById(idCita)
                 .orElseThrow(() -> new EntityNotFoundException("Cita no encontrada"));
 
-        if (citaEncontrada.getEstado() != CitaEntity.Estado.FALTA_JUSTIFICADA
-                && citaEncontrada.getEstado() != CitaEntity.Estado.FALTA_INJUSTIFICADA) {
+        if (citaEncontrada.getEstado() != CitaEntity.Estado.PENDIENTE
+                && citaEncontrada.getEstado() != CitaEntity.Estado.NO_ASISTIDO) {
             throw new IllegalArgumentException(
-                    "La cita no se puede reagendar porque se encuentra en estado pendiente, ha finalizado o fue cancelada");
+                    "La cita no se puede reagendar porque se encuentra finalizada o fue cancelada");
         }
 
         if (dto.getFichaPaciente() == null || dto.getProfesionalId() == null || dto.getEspecialidadId() == null
@@ -427,10 +428,10 @@ public class CitaService {
                     "La cita no se puede finalizar porque anteriormente ya ha finalizado o ya fue cancelada");
         }
 
-        cita.setEstado(CitaEntity.Estado.FINALIZADA);
+        cita.setEstado(CitaEntity.Estado.ASISTIDO);
         citaRepo.save(cita);
-        logger.info("200 OK: Cita finalizada correctamente");
-        CitaResponse citaResponse = new CitaResponse("Cita finalizada correctamente");
+        logger.info("200 OK: Cita marcada como ASISTIDO correctamente");
+        CitaResponse citaResponse = new CitaResponse("Cita marcada como ASISTIDO correctamente");
         return ResponseEntity.ok().body(citaResponse);
 
     }
@@ -459,23 +460,10 @@ public class CitaService {
     // Cambiar estado de cita a Falta Justificada.
     @Transactional
     public ResponseEntity<?> faltaJustificada(Long idCita) {
-        logger.info("faltaJustificada()");
-        logger.info("Cambiando estado de cita a Falta Justificada");
-
-        CitaEntity cita = citaRepo.findById(idCita)
-                .orElseThrow(() -> new EntityNotFoundException("Cita con id " + idCita + " no encontrada"));
-
-        if (cita.getEstado() != CitaEntity.Estado.PENDIENTE && cita.getEstado() != CitaEntity.Estado.FALTA_INJUSTIFICADA
-                && cita.getEstado() != CitaEntity.Estado.FALTA_JUSTIFICADA) {
-            throw new IllegalArgumentException(
-                    "La cita no se puede asignar como FALTA JUSTIFICADA porque ya ha finalizado o ya fue cancelada");
-        }
-
-        cita.setEstado(CitaEntity.Estado.FALTA_JUSTIFICADA);
-        citaRepo.save(cita);
-        CitaResponse response = new CitaResponse("Cita asignada como FALTA JUSTIFICADA correctamente");
-
-        return ResponseEntity.ok().body(response);
+        // Metodo eliminado: faltaJustificada unificado en noAsistido (usar
+        // faltaInjustificada logic -> marcarNoAsistido)
+        // Manteniendo firma para evitar borrar demasiado, pero podria deprecarse.
+        return faltaInjustificada(idCita);
     }
 
     // Cambiar estado de cita a Falta Injustificada.
@@ -487,15 +475,14 @@ public class CitaService {
         CitaEntity cita = citaRepo.findById(idCita)
                 .orElseThrow(() -> new EntityNotFoundException("Cita con id " + idCita + " no encontrada"));
 
-        if (cita.getEstado() != CitaEntity.Estado.PENDIENTE && cita.getEstado() != CitaEntity.Estado.FALTA_INJUSTIFICADA
-                && cita.getEstado() != CitaEntity.Estado.FALTA_JUSTIFICADA) {
+        if (cita.getEstado() != CitaEntity.Estado.PENDIENTE && cita.getEstado() != CitaEntity.Estado.NO_ASISTIDO) {
             throw new IllegalArgumentException(
-                    "La cita no se puede asignar como FALTA INJUSTIFICADA porque ya ha finalizado o ya fue cancelada");
+                    "La cita no se puede asignar como NO ASISTIDO porque ya ha finalizado o ya fue cancelada");
         }
 
-        cita.setEstado(CitaEntity.Estado.FALTA_INJUSTIFICADA);
+        cita.setEstado(CitaEntity.Estado.NO_ASISTIDO);
         citaRepo.save(cita);
-        CitaResponse response = new CitaResponse("Cita asignada como FALTA INJUSTIFICADA correctamente");
+        CitaResponse response = new CitaResponse("Cita asignada como NO ASISTIDO correctamente");
 
         return ResponseEntity.ok().body(response);
     }
