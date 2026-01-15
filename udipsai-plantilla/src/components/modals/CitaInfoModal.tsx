@@ -26,6 +26,11 @@ const CitaInfoModal: React.FC<CitaInfoModalProps> = ({
 
     if (!cita) return null;
 
+    // Props de la cita
+    const extendedProps = cita?.extendedProps || {};
+    const isPending = extendedProps.status === 'PENDIENTE';
+    const isFaltaInjustificada = extendedProps.status === 'FALTA_INJUSTIFICADA';
+
     const handleDeleteClick = () => {
         setShowConfirm(true);
     };
@@ -56,12 +61,10 @@ const CitaInfoModal: React.FC<CitaInfoModalProps> = ({
         }
     };
 
-    const extendedProps = cita?.extendedProps || {};
-    const isPending = extendedProps.status === 'PENDIENTE';
-
     return (
         <Modal isOpen={isOpen} onClose={onClose} className="max-w-md p-6">
             {!showConfirm ? (
+                // --- VISTA DETALLES ---
                 <>
                     <h3 className="text-xl font-semibold mb-4 text-gray-800 dark:text-white">
                         Detalles de Cita
@@ -122,53 +125,77 @@ const CitaInfoModal: React.FC<CitaInfoModalProps> = ({
                     </div>
 
                     {/* Botones de acción */}
-                    <div className="flex justify-end gap-3 mt-6">
-                        {/* Mostrar Asistido si es PENDIENTE o NO ASISTIO (para corregir) */}
-                        {(extendedProps.status === 'PENDIENTE' ||
-                            extendedProps.status === 'FALTA_INJUSTIFICADA' ||
-                            extendedProps.status === 'NO_ASISTIDO') && onMarkAsAttended && (
+                    <div className="flex flex-col gap-3 mt-6">
+                        <div className="flex justify-end gap-3 transition-opacity">
+                            {/* Reagendar: Solo si es Pendiente o Falta Injustificada */}
+                            {(isPending || isFaltaInjustificada) && onReschedule && (
                                 <Button
-                                    variant="primary"
-                                    className="!bg-green-600 hover:!bg-green-700 text-white"
-                                    onClick={() => handleStatusChange(() => onMarkAsAttended(cita.id))}
-                                    disabled={loading}
+                                    variant="outline"
+                                    className="border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-900/20"
+                                    onClick={() => onReschedule(cita.id)}
                                 >
-                                    Marcar Asistido
+                                    Reagendar
                                 </Button>
                             )}
 
-                        {/* Mostrar No Asistio si es PENDIENTE o FINALIZADA (para corregir) */}
-                        {(extendedProps.status === 'PENDIENTE' ||
-                            extendedProps.status === 'FINALIZADA' ||
-                            extendedProps.status === 'ASISTIDO') && onMarkAsNotAttended && (
-                                <Button
-                                    variant="danger"
-                                    onClick={() => handleStatusChange(() => onMarkAsNotAttended(cita.id))}
-                                    disabled={loading}
-                                >
-                                    No Asistió
-                                </Button>
-                            )}
+                            <Button
+                                variant="outline"
+                                onClick={onClose}
+                            >
+                                Cerrar
+                            </Button>
+                        </div>
 
-                        {/* Boton Cerrar siempre visible si no hay acciones de gestion primaria */}
-                        <Button
-                            variant="outline"
-                            onClick={onClose}
-                        >
-                            Cerrar
-                        </Button>
+                        {(isPending || isFaltaInjustificada || extendedProps.status === 'NO_ASISTIDO') && (
+                            <div className="border-t pt-4 flex justify-between items-center">
+                                <span className="text-xs text-gray-400">Acciones rápidas</span>
+                                <div className="flex gap-2">
+                                    {onMarkAsAttended && (
+                                        <Button
+                                            variant="outline"
+                                            className="text-green-600 border-transparent hover:text-green-700 hover:bg-green-50 px-3 py-1.5 h-auto text-sm"
+                                            onClick={() => handleStatusChange(() => onMarkAsAttended(cita.id))}
+                                            disabled={loading}
+                                        >
+                                            ✓ Asistió
+                                        </Button>
+                                    )}
+                                    {(isPending || extendedProps.status === 'FINALIZADA' || extendedProps.status === 'ASISTIDO') && onMarkAsNotAttended && (
+                                        <Button
+                                            variant="outline"
+                                            className="text-red-600 border-transparent hover:text-red-700 hover:bg-red-50 px-3 py-1.5 h-auto text-sm"
+                                            onClick={() => handleStatusChange(() => onMarkAsNotAttended(cita.id))}
+                                            disabled={loading}
+                                        >
+                                            ✕ No Asistió
+                                        </Button>
+                                    )}
+                                </div>
+                            </div>
+                        )}
+
+                        {isPending && onDelete && (
+                            <div className="flex justify-start mt-2">
+                                <button
+                                    onClick={handleDeleteClick}
+                                    className="text-xs text-red-500 hover:text-red-700 underline"
+                                >
+                                    Cancelar Cita
+                                </button>
+                            </div>
+                        )}
+
                     </div>
-
-
                 </>
             ) : (
+                // --- VISTA CONFIRMAR ELIMINACIÓN ---
                 <div className="text-center py-4">
                     <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100 mb-4 dark:bg-red-900/30">
                         <svg className="h-6 w-6 text-red-600 dark:text-red-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                         </svg>
                     </div>
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">¿Cancelar esta cita?</h3>
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2"> ¿Cancelar esta cita?</h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
                         Esta acción no se puede deshacer. La cita será eliminada permanentemente del calendario.
                     </p>

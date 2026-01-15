@@ -27,13 +27,6 @@ const Calendar: React.FC = () => {
   const [modalInitialDuration, setModalInitialDuration] = useState(1);
 
   const [specialties, setSpecialties] = useState<any[]>([]);
-  // ... (lines 28-278 remain unchanged, but skipping for brevity in replacement if not modifying logic)
-  // I must include enough context or use MULTI replace.
-  // Let's use standard replacement for the component start and then multi replace for the rest if needed.
-  // Actually, I can do it in one block if I am careful.
-  // But tracking state is at top, render is at bottom.
-  // I will use replace_file_content for the state initialization first.
-
   const [selectedSpecialtyId, setSelectedSpecialtyId] = useState<number | string>("");
   const [loading, setLoading] = useState(false);
 
@@ -123,7 +116,10 @@ const Calendar: React.FC = () => {
               calendar: getStatusColor(cita.estado),
               specialty: cita.especialidad?.area || cita.especialidad?.nombre || "General",
               specialist: cita.especialista?.nombresApellidos || "Sin Asignar",
-              status: cita.estado
+              status: cita.estado,
+              profesionalId: cita.especialista?.id,
+              fichaPaciente: cita.paciente?.id,
+              especialidadId: cita.especialidad?.id
             }
           };
         });
@@ -225,9 +221,7 @@ const Calendar: React.FC = () => {
       setModalInitialTime(cita.horaInicio.substring(0, 5));
 
       // Calculate Duration
-      // Assume simple logic or default 1 hour if not calculable from provided strings easily without momentjs
       // Backend provides horaInicio and horaFin.
-      // Let's rely on standard 1 hour or calculate.
       const startH = parseInt(cita.horaInicio.split(':')[0]);
       const endH = parseInt(cita.horaFin.split(':')[0]);
       const duration = endH - startH;

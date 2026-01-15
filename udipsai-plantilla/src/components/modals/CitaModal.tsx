@@ -68,7 +68,7 @@ const CitaModal: React.FC<CitaModalProps> = ({
             } else {
                 setStartTime(initialTime);
                 setDuration(initialDuration);
-                handleTimeSelect(initialTime);
+                // Don't auto-call handleTimeSelect to avoid resetting duration logic unnecessarily
             }
         } else {
             setStartTime("");
@@ -123,12 +123,10 @@ const CitaModal: React.FC<CitaModalProps> = ({
         }
     }, [startTime, duration]);
 
-    const handleTimeSelect = (time: string) => {
-        setStartTime(time);
-        setDuration(1); // Reset duration to 1 to ensure user re-selects valid duration for this new slot
-    };
-
+    // Helper to calculate max duration for a given start time
     const getMaxDurationForTime = (time: string) => {
+        if (!time) return 1;
+
         const [startHour] = time.split(':').map(Number);
 
         // Determine Shift Limit
@@ -140,24 +138,31 @@ const CitaModal: React.FC<CitaModalProps> = ({
         let maxPossible = 1;
 
         // We check from the NEXT hour onwards
-        // e.g. Start 09:00. Check 10:00. If 10:00 is free, max=2.
-        // Check 11:00. If 11:00 is free, max=3.
-
         for (let h = startHour + 1; h < limitHour; h++) {
             const checkTime = `${h.toString().padStart(2, '0')}:00`;
 
             // Critical: Check if this hour is in availableHours.
-            // If NOT available, we CANNOT extend duration through this hour.
             if (!availableHours.includes(checkTime)) {
                 break;
             }
             maxPossible++;
         }
 
-        // Also clamp by absolute max of 4 if desired, though shifts usually naturaly limit it.
-        // But user requirement "hasta 4 horas"
+        // Return min of calculated max and 4 (user limit)
         return Math.min(maxPossible, 4);
     };
+
+    const handleTimeSelect = (time: string) => {
+        setStartTime(time);
+
+        // UX Improvement: Try to maintain current duration if valid for new time
+        const maxForNewTime = getMaxDurationForTime(time);
+        if (duration > maxForNewTime) {
+            setDuration(1); // Reset to 1 only if current duration is invalid for new time
+        }
+        // Otherwise, keep current 'duration'
+    };
+
 
     const renderTimeSlot = (time: string) => {
         // Check availability
@@ -241,7 +246,7 @@ const CitaModal: React.FC<CitaModalProps> = ({
 
     const handleSubmit = async () => {
         console.log("Submit initiated");
-        console.log("State:", { selectedPatient, selectedSpecialist, startTime, endTime });
+        console.log("State:", { selectedPatient, selectedSpecialist, startTime, endTime, duration });
 
         if (!selectedPatient || !selectedSpecialist || !startTime || !endTime) {
             console.warn("Validation failed: missing fields");
@@ -284,6 +289,7 @@ const CitaModal: React.FC<CitaModalProps> = ({
             setSelectedSpecialist(null);
             setStartTime("");
             setEndTime("");
+            setDuration(1); // Reset duration default
 
             onSave();
             onClose();
@@ -300,7 +306,7 @@ const CitaModal: React.FC<CitaModalProps> = ({
         <>
             <Modal isOpen={isOpen} onClose={onClose} className="max-w-[700px] p-6">
                 <h2 className="text-2xl font-semibold mb-6 text-gray-800 dark:text-white">
-                    Agendar Nueva Cita
+                    {appointmentId ? "Reagendar Cita" : "Agendar Nueva Cita"}
                 </h2>
 
                 <div className="space-y-6">
@@ -458,6 +464,7 @@ const CitaModal: React.FC<CitaModalProps> = ({
                                 </div>
                             </div>
 
+                            {/* Duration and Summary */}
                             {startTime && (
                                 <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-lg dark:bg-gray-800/50 dark:border-gray-700">
                                     <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">Duración de la Cita</h4>
@@ -465,12 +472,6 @@ const CitaModal: React.FC<CitaModalProps> = ({
                                         {[1, 2, 3, 4].map((h) => {
                                             const max = getMaxDurationForTime(startTime);
                                             if (h > max) return null; // Don't show options crossing shifts
-
-                                            // Check availability for extended hours
-                                            // e.g. Start 10:00, duration 2h means 10:00-11:00 AND 11:00-12:00 must be free
-                                            // Actually, availability check is usually for START slots.
-                                            // Ideally we check if "startTime + h - 1" is free.
-                                            // Simplified: just check shift boundaries for now as requested.
 
                                             return (
                                                 <button
@@ -509,9 +510,9 @@ const CitaModal: React.FC<CitaModalProps> = ({
                         <Button
                             onClick={handleSubmit}
                             disabled={loading || !selectedPatient || !selectedSpecialist || !startTime}
-                            title={(!selectedPatient || !selectedSpecialist || !startTime) ? "Complete todos los campos requeridos" : "Agendar Cita"}
+                            title={(!selectedPatient || !selectedSpecialist || !startTime) ? "Complete todos los campos requeridos" : "Guardar Cita"}
                         >
-                            {loading ? "Guardando..." : "Guardar Cita"}
+                            {loading ? "Guardando..." : (appointmentId ? "Reagendar Cita" : "Guardar Cita")}
                         </Button>
                     </div>
                 </div>
