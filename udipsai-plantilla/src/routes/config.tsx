@@ -40,6 +40,9 @@ const GamePlayer = lazy(() => import("../pages/Repositorio/GamePlayer"));
 const Tests = lazy(() => import("../pages/Repositorio/Tests"));
 const SubirRecursos = lazy(() => import("../pages/Repositorio/SubirRecursos"));
 
+// Reportes
+const ReporteCitas = lazy(() => import("../pages/Reportes/ReporteCitas"));
+
 // Helper to wrap with permission
 const protectedRoute = (permission: string, element: ReactNode, children?: RouteObject[]): RouteObject => ({
   element: <PermissionRoute requiredPermission={permission} />,
@@ -139,6 +142,14 @@ export const privateRouteObjects: RouteObject[] = [
       { path: "juegos/:id", element: <GamePlayer /> },
       { path: "tests", element: <Tests /> },
       { path: "subir-recursos", ...protectedRoute("PERM_RECURSOS_CREAR", <SubirRecursos />) },
+    ]
+  },
+
+  // Reportes
+  {
+    path: "reportes",
+    children: [
+      { path: "citas", element: <ReporteCitas /> } // Permission can be added if needed
     ]
   }
 ];

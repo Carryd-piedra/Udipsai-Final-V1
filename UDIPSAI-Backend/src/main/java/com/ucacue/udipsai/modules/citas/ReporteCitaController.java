@@ -19,4 +19,11 @@ public class ReporteCitaController {
     public ResponseEntity<ReporteCitaRespuestaDTO> obtenerReportePorPaciente(@PathVariable Integer id) {
         return ResponseEntity.ok(reporteCitaService.generarReportePorPaciente(id));
     }
+
+    @GetMapping("/cedula/{cedula}")
+    public ResponseEntity<ReporteCitaRespuestaDTO> obtenerReportePorCedula(@PathVariable String cedula) {
+        return reporteCitaService.generarReportePorCedula(cedula)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
 }

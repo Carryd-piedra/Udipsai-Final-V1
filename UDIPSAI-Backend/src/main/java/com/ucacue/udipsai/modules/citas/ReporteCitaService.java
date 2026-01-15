@@ -13,6 +13,7 @@ import java.time.LocalTime;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.Collections;
+import java.util.Optional;
 
 @Service
 public class ReporteCitaService {
@@ -26,13 +27,15 @@ public class ReporteCitaService {
     @Autowired
     private EspecialistaRepository especialistaRepository;
 
-    public ReporteCitaRespuestaDTO generarReportePorPaciente(Integer fichaPaciente) {
-        // Obtener las ultimas 15 citas
-        Pageable pageable = PageRequest.of(0, 15, Sort.by("fecha").descending());
-        Page<VistaCitasCompleta> paginaCitas = vistaCitasCompletaRepository.findByFichaPaciente(fichaPaciente,
-                pageable);
+    @Autowired
+    private CitaRepository citaRepository;
 
-        List<VistaCitasCompleta> listaCitas = paginaCitas.getContent();
+    public ReporteCitaRespuestaDTO generarReportePorPaciente(Integer fichaPaciente) {
+        // Obtener las ultimas 15 citas directamente de la tabla CitaEntity
+        Pageable pageable = PageRequest.of(0, 15, Sort.by("fecha").descending());
+        Page<CitaEntity> paginaCitas = citaRepository.findAllByFichaPaciente(Long.valueOf(fichaPaciente), pageable);
+
+        List<CitaEntity> listaCitas = paginaCitas.getContent();
 
         ReporteCitaRespuestaDTO respuesta = new ReporteCitaRespuestaDTO();
 
@@ -49,37 +52,54 @@ public class ReporteCitaService {
             return respuesta;
         }
 
-        List<ReporteCitaDTO> citasDTO = listaCitas.stream().map(cita -> {
-            LocalTime horaInicio = null;
-            if (cita.getHorainicio() != null) {
-                horaInicio = cita.getHorainicio().toLocalTime();
-            }
+        List<ReporteCitaDTO> citasDTO = listaCitas.stream()
+                .filter(cita -> {
+                    if (cita.getEstado() == null)
+                        return false;
+                    // Keep only PENDIENTE and FINALIZADA (Realizadas)
+                    String estado = cita.getEstado().name();
+                    return estado.equals("PENDIENTE") || estado.equals("FINALIZADA");
+                })
+                .map(cita -> {
+                    LocalTime horaInicio = null;
+                    if (cita.getHoraInicio() != null) {
+                        horaInicio = cita.getHoraInicio();
+                    }
 
-            String nombreProfesional = "Desconocido";
-            if (cita.getIdProfesional() != null) {
-                nombreProfesional = especialistaRepository.findById(cita.getIdProfesional())
-                        .map(p -> {
-                            // Asumiendo que Especialista tiene getters directos o via usuario, por ahora
-                            // uso un placeholder o metodo probable
-                            // Al ver el archivo corregire si es necesario.
-                            // Previamente vi EspecialistaDTO con nombresApellidos.
-                            // Si Entity tiene nombresApellidos directo es facil. Si no, ajustar.
-                            // Por ahora pondre map simple, lo corregire al escribir si veo el archivo.
-                            return p.getNombresApellidos();
-                        })
-                        .orElse("Desconocido");
-            }
+                    LocalTime horaFin = null;
+                    if (cita.getHoraFin() != null) {
+                        horaFin = cita.getHoraFin();
+                    }
 
-            return new ReporteCitaDTO(
-                    cita.getFecha(),
-                    horaInicio,
-                    nombreProfesional,
-                    cita.getEspecialidad());
-        }).collect(Collectors.toList());
+                    String nombreProfesional = "Desconocido";
+                    if (cita.getProfesionalId() != null) {
+                        nombreProfesional = especialistaRepository.findById(Math.toIntExact(cita.getProfesionalId()))
+                                .map(p -> p.getNombresApellidos())
+                                .orElse("Desconocido");
+                    }
+
+                    String especialidadNombre = "General";
+                    if (cita.getEspecialidad() != null) {
+                        especialidadNombre = cita.getEspecialidad().getArea();
+                    }
+
+                    return new ReporteCitaDTO(
+                            cita.getFecha(),
+                            horaInicio,
+                            horaFin,
+                            nombreProfesional,
+                            especialidadNombre,
+                            cita.getEstado() != null ? cita.getEstado().name() : "PENDIENTE");
+                }).collect(Collectors.toList());
 
         Collections.reverse(citasDTO);
         respuesta.setCitas(citasDTO);
 
         return respuesta;
+    }
+
+    public Optional<ReporteCitaRespuestaDTO> generarReportePorCedula(String cedula) {
+        return pacienteRepository.findByCedula(cedula)
+                .map(paciente -> generarReportePorPaciente(paciente.getId()));
     }
 }

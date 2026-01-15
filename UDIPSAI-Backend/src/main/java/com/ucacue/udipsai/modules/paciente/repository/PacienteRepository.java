@@ -21,6 +21,8 @@ public interface PacienteRepository extends JpaRepository<Paciente, Integer>, Jp
 
         boolean existsByCedula(String cedula);
 
+        java.util.Optional<Paciente> findByCedula(String cedula);
+
         @Query("SELECT CASE WHEN COUNT(p) > 0 THEN true ELSE false END FROM Paciente p WHERE " +
                         "LOWER(p.nombresApellidos) = LOWER(:nombresApellidos) AND " +
                         "LOWER(p.ciudad) = LOWER(:ciudad) AND " +

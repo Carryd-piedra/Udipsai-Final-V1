@@ -1,0 +1,286 @@
+import { useState } from "react";
+import axios from "axios";
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
+import { Search, Printer, FileText, Loader2 } from "lucide-react";
+import { toast } from "react-toastify";
+
+// Define interface based on Backend DTO
+interface ReporteCitaDTO {
+    fecha: string;
+    hora: string;
+    horaFin: string;
+    profesional: string;
+    especialidad: string;
+    estado: string;
+}
+
+interface ReporteCitaRespuestaDTO {
+    pacienteNombreCompleto: string;
+    citas: ReporteCitaDTO[];
+}
+
+const ReporteCitas = () => {
+    const [cedula, setCedula] = useState("");
+    const [reporte, setReporte] = useState<ReporteCitaRespuestaDTO | null>(null);
+    const [loading, setLoading] = useState(false);
+    const [searched, setSearched] = useState(false);
+
+    const buscarReporte = async () => {
+        if (!cedula.trim()) {
+            toast.warning("Por favor ingrese un número de cédula");
+            return;
+        }
+        setLoading(true);
+        setSearched(true);
+        setReporte(null);
+        try {
+            // Adjust the base URL if needed, assuming relative path works with proxy or configured axios
+            const response = await axios.get<ReporteCitaRespuestaDTO>(
+                `http://localhost:8080/api/citas/reporte/cedula/${cedula}`
+            );
+            setReporte(response.data);
+        } catch (error) {
+            console.error("Error fetching report:", error);
+            toast.error("No se encontró información para la cédula ingresada o hubo un error.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    const handlePrint = () => {
+        window.print();
+    };
+
+    const handleDownloadPDF = () => {
+        if (!reporte) return;
+
+        const doc = new jsPDF();
+
+        // Logos placeholder logic (Text for now as I don't have exact paths, user can refine)
+        doc.setFontSize(18);
+        doc.setTextColor(200, 0, 0); // Red
+        doc.text("UDIPSAI", 105, 20, { align: "center" });
+
+        doc.setFontSize(12);
+        doc.setTextColor(0, 0, 0);
+        doc.text("UNIDAD DE DIAGNOSTICO, INVESTIGACION PSICOPEDAGOGICA Y", 105, 30, { align: "center" });
+        doc.text("APOYO A LA INCLUSION", 105, 36, { align: "center" });
+
+        doc.setFontSize(14);
+        doc.setTextColor(200, 0, 0);
+        doc.text("REPORTE DE HISTORIAL DE CITAS", 105, 46, { align: "center" });
+
+        // Patient Info
+        doc.setFontSize(10);
+        doc.setTextColor(0, 0, 0);
+        doc.text(`PACIENTE: ${reporte.pacienteNombreCompleto}`, 14, 56);
+        doc.text(`CÉDULA: ${cedula}`, 14, 62);
+        doc.text(`FECHA DE EMISIÓN: ${new Date().toLocaleString()}`, 140, 56);
+
+        // Table
+        const tableColumn = ["FECHA", "HORA", "PROFESIONAL", "ÁREA", "ESTADO"];
+        const tableRows: any[] = [];
+
+        reporte.citas.forEach((cita) => {
+            const citaData = [
+                cita.fecha,
+                `${cita.hora} - ${cita.horaFin || "?"}`,
+                cita.profesional,
+                cita.especialidad,
+                cita.estado || "PENDIENTE",
+            ];
+            tableRows.push(citaData);
+        });
+
+        autoTable(doc, {
+            head: [tableColumn],
+            body: tableRows,
+            startY: 70,
+            headStyles: { fillColor: [200, 0, 0] }, // Red header
+        });
+
+        doc.save(`Reporte_Citas_${cedula}.pdf`);
+    };
+
+    return (
+        <div className="p-6 max-w-[1600px] mx-auto">
+            <div className="flex flex-col lg:flex-row gap-8 items-start">
+
+                {/* Search Section (Left Column) */}
+                <div className="w-full lg:w-1/3 xl:w-1/4 print:hidden sticky top-6">
+                    <div className="bg-white shadow rounded-lg p-6 text-center border-t-4 border-red-600">
+                        <div className="flex justify-center mb-4">
+                            <div className="p-3 bg-red-50 rounded-full">
+                                <FileText className="w-8 h-8 text-red-600" />
+                            </div>
+                        </div>
+                        <h2 className="text-xl font-bold text-gray-800 mb-2">Generar Reporte</h2>
+                        <p className="text-sm text-gray-500 mb-6">Ingrese la cédula para consultar</p>
+
+                        <div className="space-y-4">
+                            <div className="text-left">
+                                <label className="block text-xs font-bold uppercase text-gray-700 mb-1">Cédula del Paciente</label>
+                                <div className="relative">
+                                    <input
+                                        type="text"
+                                        value={cedula}
+                                        onChange={(e) => setCedula(e.target.value)}
+                                        className="w-full pl-9 pr-4 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-red-500 focus:border-transparent outline-none bg-gray-50"
+                                        placeholder="0102030405"
+                                    />
+                                    <Search className="w-4 h-4 text-gray-400 absolute left-3 top-2.5" />
+                                </div>
+                            </div>
+
+                            <button
+                                onClick={buscarReporte}
+                                disabled={loading}
+                                className="w-full bg-red-700 hover:bg-red-800 text-white font-bold py-2.5 rounded-lg shadow transition duration-200 flex items-center justify-center gap-2 text-sm"
+                            >
+                                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : <Search className="w-4 h-4" />}
+                                Buscar
+                            </button>
+
+                            {reporte && (
+                                <button
+                                    onClick={handlePrint}
+                                    className="w-full bg-white border border-gray-300 hover:bg-gray-50 text-gray-700 font-semibold py-2.5 rounded-lg shadow-sm transition duration-200 flex items-center justify-center gap-2 text-sm"
+                                >
+                                    <Printer className="w-4 h-4" />
+                                    Imprimir
+                                </button>
+                            )}
+                        </div>
+                        <div className="mt-6 text-[10px] text-gray-400">
+                            Sistema UDIPSAI
+                        </div>
+                    </div>
+                </div>
+
+                {/* Report Display Section (Right Column) */}
+                <div className="w-full lg:w-2/3 xl:w-3/4">
+                    <style>{`
+                        @media print {
+                            body * {
+                                visibility: hidden;
+                            }
+                            #printable-section, #printable-section * {
+                                visibility: visible;
+                            }
+                            #printable-section {
+                                position: absolute;
+                                left: 0;
+                                top: 0;
+                                width: 100%;
+                                margin: 0;
+                                padding: 40px;
+                                background: white;
+                                z-index: 9999;
+                                border: 2px solid #e5e7eb;
+                                min-height: 100vh;
+                            }
+                            @page {
+                                size: auto;
+                                margin: 0mm;
+                            }
+                        }
+                    `}</style>
+                    {reporte ? (
+                        <div id="printable-section" className="bg-white shadow-lg rounded-xl p-10 print:shadow-none print:p-0 print:w-full font-sans min-h-[600px] flex flex-col">
+                            {/* Header Logos */}
+                            <div className="flex justify-center mb-6">
+                                <img src="/Logo-UDIPSAI.jpeg" alt="Universidad Católica de Cuenca - UDIPSAI" className="h-24 object-contain" />
+                            </div>
+
+                            <div className="text-center mb-8">
+                                <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wide">UNIDAD DE DIAGNOSTICO, INVESTIGACION PSICOPEDAGOGICA Y</h3>
+                                <h3 className="text-sm font-bold text-gray-800 uppercase tracking-wide">APOYO A LA INCLUSION "UDIPSAI"</h3>
+                                <h4 className="text-red-700 font-bold uppercase mt-4 text-xl tracking-widest border-b border-red-200 inline-block pb-1">Reporte de Historial de Citas</h4>
+                            </div>
+
+                            {/* Patient Info Card */}
+                            <div className="bg-gray-50 p-6 rounded-lg mb-8 grid grid-cols-2 gap-y-4 gap-x-8 border border-gray-200 print:bg-transparent print:border-none">
+                                <div className="flex flex-col">
+                                    <span className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-1">Paciente</span>
+                                    <span className="text-gray-900 font-bold text-lg uppercase">{reporte.pacienteNombreCompleto}</span>
+                                </div>
+                                <div className="flex flex-col text-right">
+                                    <span className="text-gray-500 text-xs font-bold uppercase tracking-wider mb-1">Cédula</span>
+                                    <span className="text-gray-900 font-bold text-lg">{cedula}</span>
+                                </div>
+                                <div className="col-span-2 text-right border-t border-gray-200 pt-3 mt-1">
+                                    <span className="text-gray-400 text-xs font-medium uppercase tracking-wide">Fecha de Emisión: {new Date().toLocaleString()}</span>
+                                </div>
+                            </div>
+
+                            {/* Table */}
+                            <div className="overflow-x-auto rounded-lg border border-gray-200 mb-auto">
+                                <table className="w-full text-sm text-left">
+                                    <thead className="text-xs text-white uppercase bg-red-700">
+                                        <tr>
+                                            <th className="px-6 py-3 font-bold tracking-wider">Fecha</th>
+                                            <th className="px-6 py-3 font-bold tracking-wider">Hora</th>
+                                            <th className="px-6 py-3 font-bold tracking-wider">Profesional</th>
+                                            <th className="px-6 py-3 font-bold tracking-wider">Área</th>
+                                            <th className="px-6 py-3 font-bold tracking-wider text-center">Estado</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody className="divide-y divide-gray-200 bg-white">
+                                        {reporte.citas.length > 0 ? (
+                                            reporte.citas.map((cita, index) => (
+                                                <tr key={index} className="hover:bg-red-50/30 transition-colors">
+                                                    <td className="px-6 py-4 font-semibold text-gray-900">{cita.fecha}</td>
+                                                    <td className="px-6 py-4 text-gray-600 font-medium whitespace-nowrap">{cita.hora} - {cita.horaFin || "?"}</td>
+                                                    <td className="px-6 py-4 text-gray-700 uppercase font-medium text-xs">{cita.profesional}</td>
+                                                    <td className="px-6 py-4 text-gray-600 text-xs">{cita.especialidad}</td>
+                                                    <td className="px-6 py-4 text-center">
+                                                        <span className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border ${cita.estado === 'FINALIZADA' || cita.estado === 'ASISTIDO' ? 'bg-gray-100 text-gray-800 border-gray-300' :
+                                                            'bg-white text-red-700 border-red-200'
+                                                            }`}>
+                                                            {cita.estado || "PENDIENTE"}
+                                                        </span>
+                                                    </td>
+                                                </tr>
+                                            ))
+                                        ) : (
+                                            <tr>
+                                                <td colSpan={5} className="px-6 py-12 text-center text-gray-500 italic bg-gray-50">
+                                                    No se encontraron citas registradas para este paciente en el historial que cumplan los criterios.
+                                                </td>
+                                            </tr>
+                                        )}
+                                    </tbody>
+                                </table>
+                            </div>
+
+                            {/* Footer for print */}
+                            <div className="hidden print:block mt-12 text-center text-xs text-gray-400 border-t pt-4">
+                                <p>Generado por Sistema UDIPSAI - {new Date().getFullYear()}</p>
+                            </div>
+
+                            {/* Print/Download Actions */}
+                            <div className="mt-8 flex justify-end gap-4 print:hidden border-t pt-6">
+                                <button
+                                    onClick={handleDownloadPDF}
+                                    className="flex items-center gap-2 text-red-700 hover:text-red-800 font-bold text-sm transition-colors uppercase tracking-wide"
+                                >
+                                    <FileText className="w-4 h-4" />
+                                    Descargar versión PDF
+                                </button>
+                            </div>
+                        </div>
+                    ) : (
+                        // Empty State when no report is generated yet
+                        <div className="bg-gray-50 border-2 border-dashed border-gray-200 rounded-xl h-[600px] flex flex-col items-center justify-center text-gray-400">
+                            <FileText className="w-16 h-16 mb-4 opacity-50" />
+                            <p className="text-lg font-medium">Ingrese una cédula para ver el reporte</p>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+};
+
+export default ReporteCitas;

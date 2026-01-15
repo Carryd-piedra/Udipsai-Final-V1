@@ -6,7 +6,7 @@ import lombok.NoArgsConstructor;
 import lombok.Setter;
 
 import java.time.LocalTime;
-import java.util.Date;
+import java.time.LocalDate;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 
@@ -16,9 +16,12 @@ import com.fasterxml.jackson.annotation.JsonFormat;
 @AllArgsConstructor
 public class ReporteCitaDTO {
     @JsonFormat(pattern = "dd-MM-yyyy")
-    private Date fecha;
+    private LocalDate fecha;
     @JsonFormat(pattern = "HH:mm")
     private LocalTime hora;
+    @JsonFormat(pattern = "HH:mm")
+    private LocalTime horaFin;
     private String profesional;
     private String especialidad;
+    private String estado;
 }
