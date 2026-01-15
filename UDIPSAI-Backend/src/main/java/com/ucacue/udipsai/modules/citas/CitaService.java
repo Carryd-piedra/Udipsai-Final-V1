@@ -203,10 +203,14 @@ public class CitaService {
 
         // Obtener todas las citas del profesional esa fecha para validar solapamiento
         // real
-        List<CitaEntity> citasDia = citaRepo.findCitasOcupadasByProfesionalAndFecha(dto.getProfesionalId(),
-                dto.getFecha());
+        // Obtener todas las citas del profesional esa fecha para validar solapamiento
+        // real
+        List<CitaEntity> citasDia = citaRepo.findAllByProfesionalIdAndFecha(dto.getProfesionalId(), dto.getFecha());
 
         for (CitaEntity existing : citasDia) {
+            if (existing.getEstado() == CitaEntity.Estado.CANCELADA) {
+                continue;
+            }
             LocalTime existingStart = existing.getHoraInicio();
             LocalTime existingEnd = existing.getHoraFin();
 
@@ -281,26 +285,66 @@ public class CitaService {
                             + " no encontrado para el reagendamiento de la cita");
         }
 
-        if (citaRepo.existsByEstadoAndFechaAndHoraInicioAndFichaPaciente(CitaEntity.Estado.PENDIENTE, dto.getFecha(),
-                dto.getHora(),
-                dto.getFichaPaciente())) {
-            throw new IllegalArgumentException(
-                    "Paciente " + paciente.getNombresApellidos().trim()
-                            + " ya tiene una cita asignada en la fecha "
-                            + dto.getFecha().toString() + " y hora " + dto.getHora().toString());
+        // Check 1: Patient Conflict (Skip if same time/date as current)
+        if (!(citaEncontrada.getFecha().equals(dto.getFecha())
+                && citaEncontrada.getHoraInicio().equals(dto.getHora()))) {
+            if (citaRepo.existsByEstadoAndFechaAndHoraInicioAndFichaPaciente(CitaEntity.Estado.PENDIENTE,
+                    dto.getFecha(),
+                    dto.getHora(),
+                    dto.getFichaPaciente())) {
+                throw new IllegalArgumentException(
+                        "Paciente " + paciente.getNombresApellidos().trim()
+                                + " ya tiene una cita asignada en la fecha "
+                                + dto.getFecha().toString() + " y hora " + dto.getHora().toString());
+            }
+
+            if (citaRepo.existsByEstadoAndFechaAndHoraInicioAndProfesionalId(CitaEntity.Estado.PENDIENTE,
+                    dto.getFecha(),
+                    dto.getHora(),
+                    dto.getProfesionalId())) {
+                throw new IllegalArgumentException(
+                        "Especialista " + especialista.getNombresApellidos().trim().toUpperCase()
+                                + " ya tiene una cita asignada en la fecha "
+                                + dto.getFecha().toString() + " y hora " + dto.getHora().toString());
+            }
         }
 
-        if (citaRepo.existsByEstadoAndFechaAndHoraInicioAndProfesionalId(CitaEntity.Estado.PENDIENTE, dto.getFecha(),
-                dto.getHora(),
-                dto.getProfesionalId())) {
-            throw new IllegalArgumentException("Especialista " + especialista.getNombresApellidos().trim().toUpperCase()
-                    + " ya tiene una cita asignada en la fecha "
-                    + dto.getFecha().toString() + " y hora " + dto.getHora().toString());
+        // New Overlap Validation for Duration
+        int duration = (dto.getDuracionMinutes() != null && dto.getDuracionMinutes() > 0)
+                ? dto.getDuracionMinutes()
+                : 60;
+        LocalTime newStart = dto.getHora();
+        LocalTime newEnd = newStart.plusMinutes(duration);
+
+        List<CitaEntity> citasDia = citaRepo.findAllByProfesionalIdAndFecha(dto.getProfesionalId(), dto.getFecha());
+
+        for (CitaEntity existing : citasDia) {
+            if (existing.getEstado() == CitaEntity.Estado.CANCELADA) {
+                continue;
+            }
+            // Exclude self from check
+            if (existing.getIdCita().equals(citaEncontrada.getIdCita()))
+                continue;
+
+            LocalTime existingStart = existing.getHoraInicio();
+            LocalTime existingEnd = existing.getHoraFin();
+
+            logger.info("Verificando conflicto con Cita ID: {} | Hora: {} - {}", existing.getIdCita(), existingStart,
+                    existingEnd);
+
+            if (newStart.isBefore(existingEnd) && newEnd.isAfter(existingStart)) {
+                logger.warn("CONFLICTO DETECTADO: Nueva Cita ({} - {}) vs Existente ({} - {})", newStart, newEnd,
+                        existingStart, existingEnd);
+                throw new IllegalArgumentException(
+                        "Especialista " + especialista.getNombresApellidos().trim().toUpperCase()
+                                + " ya tiene una cita ocupada en el rango " + existingStart + " - " + existingEnd
+                                + " que conflicto con el nuevo horario " + newStart + " - " + newEnd);
+            }
         }
 
         citaEncontrada.setFecha(dto.getFecha());
         citaEncontrada.setHoraInicio(dto.getHora());
-        citaEncontrada.setHoraFin(dto.getHora().plusMinutes(60));
+        citaEncontrada.setHoraFin(dto.getHora().plusMinutes(duration));
         citaEncontrada.setEstado(CitaEntity.Estado.PENDIENTE);
         // Tambien deberiamos actualizar los otros campos si cambiaron
         citaEncontrada.setProfesionalId(dto.getProfesionalId());
@@ -385,10 +429,13 @@ public class CitaService {
             throw new EntityNotFoundException("Profesional con id " + profesionalId + " no encontrado");
         }
 
-        List<CitaEntity> citasOcupadas = citaRepo.findCitasOcupadasByProfesionalAndFecha(profesionalId, fecha);
+        List<CitaEntity> citasOcupadas = citaRepo.findAllByProfesionalIdAndFecha(profesionalId, fecha);
         List<LocalTime> horasOcupadas = new ArrayList<>();
 
         for (CitaEntity cita : citasOcupadas) {
+            if (cita.getEstado() == CitaEntity.Estado.CANCELADA) {
+                continue;
+            }
             LocalTime start = cita.getHoraInicio();
             LocalTime end = cita.getHoraFin();
             while (start.isBefore(end)) {

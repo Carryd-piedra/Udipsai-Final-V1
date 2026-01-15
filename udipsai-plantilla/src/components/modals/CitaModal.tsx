@@ -7,6 +7,7 @@ import { citasService } from "../../services/citas";
 import { toast } from "react-hot-toast";
 import PatientSearchModal from "./PatientSearchModal";
 import SpecialistSearchModal from "./SpecialistSearchModal";
+import CalendarSelectionModal from "./CalendarSelectionModal";
 
 interface CitaModalProps {
     isOpen: boolean;
@@ -42,6 +43,7 @@ const CitaModal: React.FC<CitaModalProps> = ({
     const [duration, setDuration] = useState(initialDuration); // Default from prop
     const [endTime, setEndTime] = useState("");
     const [loading, setLoading] = useState(false);
+    const [errorMessage, setErrorMessage] = useState<string | null>(null);
 
     // Availability State
     const [availableHours, setAvailableHours] = useState<string[]>([]);
@@ -50,6 +52,14 @@ const CitaModal: React.FC<CitaModalProps> = ({
     // Modal control states
     const [showPatientModal, setShowPatientModal] = useState(false);
     const [showSpecialistModal, setShowSpecialistModal] = useState(false);
+    const [showCalendarModal, setShowCalendarModal] = useState(false);
+
+    const handleCalendarSelect = (date: string, time: string) => {
+        setSelectedDate(date);
+        setStartTime(time);
+        // Force availability check refresh for this new date if needed, though handleTimeSelect logic usually runs on render or user click. 
+        // Setting state should trigger effects.
+    };
 
     useEffect(() => {
         setSelectedDate(initialDate);
@@ -68,7 +78,7 @@ const CitaModal: React.FC<CitaModalProps> = ({
             } else {
                 setStartTime(initialTime);
                 setDuration(initialDuration);
-                handleTimeSelect(initialTime);
+                // handleTimeSelect(initialTime); // Don't call this, it resets duration to 1!
             }
         } else {
             setStartTime("");
@@ -93,8 +103,12 @@ const CitaModal: React.FC<CitaModalProps> = ({
             citasService.obtenerHorasLibres(selectedSpecialist.id, selectedDate)
                 .then((hours: string[]) => {
                     setAvailableHours(hours);
-                    // Reset selected time if it's no longer available
-                    if (startTime && !hours.includes(startTime)) {
+                    // Reset selected time if it's no longer available, UNLESS it's the original rescheduled time
+                    const isRescheduling = !!appointmentId;
+                    const isSameDayAsOriginal = selectedDate === initialDate;
+                    const isOriginalSlot = isRescheduling && isSameDayAsOriginal && startTime === initialTime.substring(0, 5);
+
+                    if (startTime && !hours.includes(startTime) && !isOriginalSlot) {
                         setStartTime("");
                         setEndTime("");
                     }
@@ -123,6 +137,11 @@ const CitaModal: React.FC<CitaModalProps> = ({
         }
     }, [startTime, duration]);
 
+    // Clear error message when inputs change
+    useEffect(() => {
+        if (errorMessage) setErrorMessage(null);
+    }, [selectedDate, startTime, selectedPatient, selectedSpecialist, duration]);
+
     const handleTimeSelect = (time: string) => {
         setStartTime(time);
         setDuration(1); // Reset duration to 1 to ensure user re-selects valid duration for this new slot
@@ -139,23 +158,28 @@ const CitaModal: React.FC<CitaModalProps> = ({
 
         let maxPossible = 1;
 
-        // We check from the NEXT hour onwards
-        // e.g. Start 09:00. Check 10:00. If 10:00 is free, max=2.
-        // Check 11:00. If 11:00 is free, max=3.
+        // original slots logic
+        const isRescheduling = !!appointmentId;
+        const isSameDayAsOriginal = selectedDate === initialDate;
+        // initialDuration is passed as prop. Assuming initialTime is start.
+        // We need to know the original End Time or Duration.
+        // The prop is `initialDuration`. 
+        const originalStartH = initialTime ? parseInt(initialTime.split(':')[0]) : -1;
+        const originalEndH = originalStartH + initialDuration;
 
         for (let h = startHour + 1; h < limitHour; h++) {
             const checkTime = `${h.toString().padStart(2, '0')}:00`;
 
-            // Critical: Check if this hour is in availableHours.
-            // If NOT available, we CANNOT extend duration through this hour.
-            if (!availableHours.includes(checkTime)) {
+            // Available if in availableHours OR if it is part of the original appointment (one of our own slots)
+            const isMySlot = isRescheduling && isSameDayAsOriginal && h >= originalStartH && h < originalEndH;
+
+            if (!availableHours.includes(checkTime) && !isMySlot) {
                 break;
             }
             maxPossible++;
         }
 
-        // Also clamp by absolute max of 4 if desired, though shifts usually naturaly limit it.
-        // But user requirement "hasta 4 horas"
+
         return Math.min(maxPossible, 4);
     };
 
@@ -185,6 +209,9 @@ const CitaModal: React.FC<CitaModalProps> = ({
         const isSameDayAsOriginal = selectedDate === initialDate;
         const isBeforeInitial = isRescheduling && isSameDayAsOriginal && initialTime ? time < initialTime : false;
 
+        // Validation: Is this the original slot we are editing?
+        const isOriginalSlot = isRescheduling && isSameDayAsOriginal && initialTime && time === initialTime.substring(0, 5);
+
         // Validation 3: Shift Isolation
         let isCrossShift = false;
         if (startTime) {
@@ -199,7 +226,7 @@ const CitaModal: React.FC<CitaModalProps> = ({
             }
         }
 
-        const isAvailable = availableHours.includes(time) && !isPast && !isCrossShift && !isBeforeInitial;
+        const isAvailable = (availableHours.includes(time) || isOriginalSlot) && !isPast && !isCrossShift && !isBeforeInitial;
 
         // Check if this slot is part of the currently selected duration
         let isInDurationBlock = false;
@@ -228,12 +255,12 @@ const CitaModal: React.FC<CitaModalProps> = ({
                     ? "bg-brand-600 text-white border-brand-700 shadow-md font-bold"
                     : isAvailable
                         ? "bg-white border-gray-200 text-gray-700 hover:bg-gray-50 hover:border-gray-300 dark:bg-gray-800 dark:border-gray-700 dark:text-gray-200 dark:hover:bg-gray-700"
-                        : "bg-gray-100 text-gray-400 border-gray-100 cursor-not-allowed text-opacity-60 decoration-slice dark:bg-gray-800/50 dark:border-gray-800 dark:text-gray-600"
+                        : "bg-red-50 text-red-300 border-red-100 cursor-not-allowed decoration-slice dark:bg-red-900/10 dark:border-red-900/30 dark:text-red-800"
                     }`}
                 title={
                     isPast ? "Hora ya pasada" :
                         isBeforeInitial ? `Hora anterior a la cita original (${initialTime})` :
-                            (!availableHours.includes(time) ? "No disponible" : "")
+                            (!availableHours.includes(time) && !isOriginalSlot ? "Hora ya ocupada" : "")
                 }
             >
                 {time}
@@ -249,6 +276,37 @@ const CitaModal: React.FC<CitaModalProps> = ({
             console.warn("Validation failed: missing fields");
             toast.error("Por favor seleccione un paciente, un especialista y una hora de cita.");
             return;
+        }
+
+        // Validate availability
+        // Allow if it is the ORIGINAL slot (rescheduling same time)
+        const isRescheduling = !!appointmentId;
+        const isSameDayAsOriginal = selectedDate === initialDate;
+        const isOriginalSlot = isRescheduling && isSameDayAsOriginal && initialTime && startTime === initialTime.substring(0, 5);
+
+        if (!availableHours.includes(startTime) && !isOriginalSlot) {
+            console.warn("Validation failed: slot not available");
+            toast.error("La hora seleccionada ya no está disponible. Por favor seleccione otra.");
+            // Optional: Clear it?
+            setStartTime("");
+            setEndTime("");
+            return;
+        }
+
+        // Validate Duration Overlap
+        const startH = parseInt(startTime.split(':')[0]);
+        for (let i = 0; i < duration; i++) {
+            const checkH = startH + i;
+            const checkTime = `${checkH.toString().padStart(2, '0')}:00`;
+
+            // Allow if it is part of the ORIGINAL appointment range
+            const originalStartH = initialTime ? parseInt(initialTime.split(':')[0]) : -1;
+            const isMySlot = isRescheduling && isSameDayAsOriginal && checkH >= originalStartH && checkH < (originalStartH + (initialDuration || 1));
+
+            if (!availableHours.includes(checkTime) && !isMySlot) {
+                toast.error(`La hora ${checkTime} dentro del rango seleccionado no está disponible.`);
+                return;
+            }
         }
 
         setLoading(true);
@@ -287,11 +345,20 @@ const CitaModal: React.FC<CitaModalProps> = ({
             setStartTime("");
             setEndTime("");
 
+            setErrorMessage(null); // Clear previous errors
             onSave();
             onClose();
         } catch (error: any) {
             console.error("Error creating appointment:", error);
-            const msg = error?.response?.data?.message || "Error al agendar la cita";
+            let msg = "Error al agendar la cita";
+            if (error?.response?.data) {
+                if (typeof error.response.data === 'string') {
+                    msg = error.response.data;
+                } else if (error.response.data.message) {
+                    msg = error.response.data.message;
+                }
+            }
+            setErrorMessage(msg);
             toast.error(msg);
         } finally {
             setLoading(false);
@@ -319,13 +386,13 @@ const CitaModal: React.FC<CitaModalProps> = ({
                                     disabled
                                     value={
                                         selectedPatient
-                                            ? `${selectedPatient.nombresApellidos || selectedPatient.nombres + ' ' + selectedPatient.apellidos} - ${selectedPatient.cedula}`
+                                            ? `${selectedPatient.nombresApellidos || selectedPatient.nombres + ' ' + selectedPatient.apellidos} - ${selectedPatient.cedula} `
                                             : "Ningún paciente seleccionado"
                                     }
                                     className={`flex-1 px-3 py-2.5 rounded-lg border text-sm ${selectedPatient
                                         ? "bg-green-50 border-green-200 text-green-800"
                                         : "bg-gray-100 border-gray-200 text-gray-500"
-                                        }`}
+                                        } `}
                                 />
                                 {selectedPatient && (
                                     <button
@@ -372,13 +439,13 @@ const CitaModal: React.FC<CitaModalProps> = ({
                                     disabled
                                     value={
                                         selectedSpecialist
-                                            ? `${selectedSpecialist.nombresApellidos || selectedSpecialist.nombres + ' ' + selectedSpecialist.apellidos} - ${selectedSpecialist.especialidad?.area || 'Sin esp.'}`
+                                            ? `${selectedSpecialist.nombresApellidos || selectedSpecialist.nombres + ' ' + selectedSpecialist.apellidos} - ${selectedSpecialist.especialidad?.area || 'Sin esp.'} `
                                             : "Ningún especialista seleccionado"
                                     }
                                     className={`flex-1 px-3 py-2.5 rounded-lg border text-sm ${selectedSpecialist
                                         ? "bg-green-50 border-green-200 text-green-800"
                                         : "bg-gray-100 border-gray-200 text-gray-500"
-                                        }`}
+                                        } `}
                                 />
                                 {selectedSpecialist && (
                                     <button
@@ -416,13 +483,30 @@ const CitaModal: React.FC<CitaModalProps> = ({
 
                         <div className="mb-4">
                             <label className="block text-xs text-gray-500 mb-1">Fecha de la Cita</label>
-                            <input
-                                type="date"
-                                value={selectedDate}
-                                min={new Date().toISOString().split('T')[0]}
-                                onChange={(e) => setSelectedDate(e.target.value)}
-                                className="w-full rounded-lg border border-gray-300 px-4 py-2 dark:bg-gray-800 dark:border-gray-700 dark:text-white"
-                            />
+                            <div className="flex gap-2">
+                                <input
+                                    type="date"
+                                    value={selectedDate}
+                                    min={new Date().toISOString().split('T')[0]}
+                                    onChange={(e) => setSelectedDate(e.target.value)}
+                                    className="flex-1 rounded-lg border border-gray-300 px-4 py-2 dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+                                />
+                                {appointmentId && (
+                                    <Button
+                                        variant="outline"
+                                        onClick={() => {
+                                            if (!selectedSpecialist) {
+                                                toast.error("Seleccione un especialista primero");
+                                                return;
+                                            }
+                                            setShowCalendarModal(true);
+                                        }}
+                                        title="Ver disponibilidad en calendario"
+                                    >
+                                        📅 Ver Calendario
+                                    </Button>
+                                )}
+                            </div>
                         </div>
 
                         <div className="space-y-4">
@@ -482,7 +566,7 @@ const CitaModal: React.FC<CitaModalProps> = ({
                                                     className={`px-4 py-2 rounded text-sm border font-medium transition ${duration === h
                                                         ? "bg-brand-600 text-white border-brand-600"
                                                         : "bg-white text-gray-700 border-gray-300 hover:bg-gray-100 dark:bg-gray-700 dark:border-gray-600 dark:text-gray-300"
-                                                        }`}
+                                                        } `}
                                                 >
                                                     {h} {h === 1 ? 'Hora' : 'Horas'}
                                                     <span className="block text-xs font-normal opacity-80">
@@ -501,6 +585,15 @@ const CitaModal: React.FC<CitaModalProps> = ({
                             )}
                         </div>
                     </div>
+
+                    {/* Explicit Error Message Display */}
+                    {errorMessage && (
+                        <div className="p-4 bg-red-100 border border-red-300 text-red-700 rounded-lg animate-pulse" role="alert">
+                            <strong className="font-bold">Error: </strong>
+                            <span className="block sm:inline">{errorMessage}</span>
+                        </div>
+                    )}
+
                     {/* Actions */}
                     <div className="flex justify-end gap-3 mt-6">
                         <Button
@@ -532,6 +625,14 @@ const CitaModal: React.FC<CitaModalProps> = ({
                 onClose={() => setShowSpecialistModal(false)}
                 onSelect={setSelectedSpecialist}
                 fixedSpecialtyId={fixedSpecialtyId}
+            />
+
+            <CalendarSelectionModal
+                isOpen={showCalendarModal}
+                onClose={() => setShowCalendarModal(false)}
+                specialistId={selectedSpecialist?.id}
+                specialistName={selectedSpecialist ? (selectedSpecialist.nombresApellidos || `${selectedSpecialist.nombres || ''} ${selectedSpecialist.apellidos || ''}`) : undefined}
+                onSelectSlot={handleCalendarSelect}
             />
         </>
     );
