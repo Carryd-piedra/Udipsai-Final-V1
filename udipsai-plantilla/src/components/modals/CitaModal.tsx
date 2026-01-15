@@ -180,8 +180,10 @@ const CitaModal: React.FC<CitaModalProps> = ({
         const isPast = slotDate < now;
 
         // Validation 2: Before Initial Time (User Constraint)
-        // Only apply if we have an initialTime set (from calendar click)
-        const isBeforeInitial = initialTime ? time < initialTime : false;
+        // Only apply if we have an initialTime set (from calendar click) AND we are rescheduling on the same day
+        const isRescheduling = !!appointmentId;
+        const isSameDayAsOriginal = selectedDate === initialDate;
+        const isBeforeInitial = isRescheduling && isSameDayAsOriginal && initialTime ? time < initialTime : false;
 
         // Validation 3: Shift Isolation
         let isCrossShift = false;
@@ -197,7 +199,7 @@ const CitaModal: React.FC<CitaModalProps> = ({
             }
         }
 
-        const isAvailable = availableHours.includes(time) && !isPast && !isCrossShift; // && !isBeforeInitial;
+        const isAvailable = availableHours.includes(time) && !isPast && !isCrossShift && !isBeforeInitial;
 
         // Check if this slot is part of the currently selected duration
         let isInDurationBlock = false;
@@ -230,7 +232,7 @@ const CitaModal: React.FC<CitaModalProps> = ({
                     }`}
                 title={
                     isPast ? "Hora ya pasada" :
-                        isBeforeInitial ? `Hora anterior a la seleccionada (${initialTime})` :
+                        isBeforeInitial ? `Hora anterior a la cita original (${initialTime})` :
                             (!availableHours.includes(time) ? "No disponible" : "")
                 }
             >
@@ -417,6 +419,7 @@ const CitaModal: React.FC<CitaModalProps> = ({
                             <input
                                 type="date"
                                 value={selectedDate}
+                                min={new Date().toISOString().split('T')[0]}
                                 onChange={(e) => setSelectedDate(e.target.value)}
                                 className="w-full rounded-lg border border-gray-300 px-4 py-2 dark:bg-gray-800 dark:border-gray-700 dark:text-white"
                             />

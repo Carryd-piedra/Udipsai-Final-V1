@@ -26,9 +26,7 @@ const CitaInfoModal: React.FC<CitaInfoModalProps> = ({
 
     if (!cita) return null;
 
-    const handleDeleteClick = () => {
-        setShowConfirm(true);
-    };
+
 
     const confirmDelete = async () => {
         if (!onDelete) return;
@@ -57,7 +55,7 @@ const CitaInfoModal: React.FC<CitaInfoModalProps> = ({
     };
 
     const extendedProps = cita?.extendedProps || {};
-    const isPending = extendedProps.status === 'PENDIENTE';
+
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} className="max-w-md p-6">
@@ -147,6 +145,19 @@ const CitaInfoModal: React.FC<CitaInfoModalProps> = ({
                                     disabled={loading}
                                 >
                                     No Asistió
+                                </Button>
+                            )}
+
+                        {/* Boton Reagendar */}
+                        {(extendedProps.status === 'PENDIENTE' ||
+                            extendedProps.status === 'FALTA_INJUSTIFICADA') && (
+                                <Button
+                                    variant="primary"
+                                    className="!bg-blue-600 hover:!bg-blue-700 text-white"
+                                    onClick={() => onReschedule && onReschedule(cita.id)}
+                                    disabled={loading || !onReschedule}
+                                >
+                                    Reagendar
                                 </Button>
                             )}
 
