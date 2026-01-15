@@ -19,26 +19,13 @@ import com.ucacue.udipsai.modules.sedes.domain.Sede;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class Pasante {
-
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
-
-    @Column(name = "cedula", unique = true, nullable = false, length = 15)
-    private String cedula;
+public class Pasante extends com.ucacue.udipsai.modules.usuarios.domain.UsuarioAtencion {
 
     @Column(name = "fecha_apertura")
     private LocalDateTime fechaApertura = LocalDateTime.now();
 
-    @Column(name = "activo", nullable = false)
-    private Boolean activo = true;
-
     @Column(name = "email", length = 100)
     private String email;
-
-    @Column(name = "nombres_apellidos", nullable = false)
-    private String nombresApellidos;
 
     @Column(length = 100)
     private String ciudad;
@@ -55,9 +42,6 @@ public class Pasante {
     @Column(columnDefinition = "TEXT")
     private String domicilio;
 
-    @Column(name = "foto_url")
-    private String fotoUrl;
-
     @Column(name = "numero_telefono", length = 15)
     private String numeroTelefono;
 
@@ -65,21 +49,6 @@ public class Pasante {
     private String numeroCelular;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "sede_id")
-    private Sede sede;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "especialidad_id", nullable = false)
-    private Especialidad especialidad;
-
-    @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "especialista_id", nullable = false)
     private Especialista especialista;
-
-    @Column(name = "contrasenia", nullable = false)
-    private String contrasenia;
-
-    @OneToOne(cascade = CascadeType.ALL)
-    @JoinColumn(name = "permisos_id")
-    private Permisos permisos;
 }

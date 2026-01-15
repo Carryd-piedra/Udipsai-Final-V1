@@ -135,8 +135,8 @@ const Calendar: React.FC = () => {
   const getStatusColor = (status: string) => {
     switch (status) {
       case 'PENDIENTE': return 'Warning'; // Orange
-      case 'ASISTIDO': return 'Success'; // Green
-      case 'NO_ASISTIDO': return 'Danger'; // Red
+      case 'FINALIZADA': return 'Success'; // Green
+      case 'NO_JUSTIFICADA': return 'Danger'; // Red
       case 'CANCELADA': return 'Danger'; // Red (Filtered out usually)
       default: return 'Primary';
     }
