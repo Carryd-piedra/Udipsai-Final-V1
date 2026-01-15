@@ -25,6 +25,8 @@ const ReporteCitas = () => {
     const [reporte, setReporte] = useState<ReporteCitaRespuestaDTO | null>(null);
     const [loading, setLoading] = useState(false);
     const [searched, setSearched] = useState(false);
+    const [tipoReporte, setTipoReporte] = useState<"SECRETARIA" | "PADRES">("SECRETARIA");
+    const [alcance, setAlcance] = useState<"RAPIDO" | "COMPLETO">("RAPIDO");
 
     const buscarReporte = async () => {
         if (!cedula.trim()) {
@@ -37,7 +39,7 @@ const ReporteCitas = () => {
         try {
             // Adjust the base URL if needed, assuming relative path works with proxy or configured axios
             const response = await axios.get<ReporteCitaRespuestaDTO>(
-                `http://localhost:8080/api/citas/reporte/cedula/${cedula}`
+                `http://localhost:8080/api/citas/reporte/cedula/${cedula}?tipo=${tipoReporte}&alcance=${alcance}`
             );
             setReporte(response.data);
         } catch (error) {
@@ -52,55 +54,147 @@ const ReporteCitas = () => {
         window.print();
     };
 
-    const handleDownloadPDF = () => {
+    const handleDownloadPDF = async () => {
         if (!reporte) return;
 
         const doc = new jsPDF();
 
-        // Logos placeholder logic (Text for now as I don't have exact paths, user can refine)
-        doc.setFontSize(18);
-        doc.setTextColor(200, 0, 0); // Red
-        doc.text("UDIPSAI", 105, 20, { align: "center" });
+        // Helper to load image
+        const loadImage = (src: string): Promise<HTMLImageElement> => {
+            return new Promise((resolve, reject) => {
+                const img = new Image();
+                img.src = src;
+                img.onload = () => resolve(img);
+                img.onerror = reject;
+            });
+        };
 
-        doc.setFontSize(12);
-        doc.setTextColor(0, 0, 0);
-        doc.text("UNIDAD DE DIAGNOSTICO, INVESTIGACION PSICOPEDAGOGICA Y", 105, 30, { align: "center" });
-        doc.text("APOYO A LA INCLUSION", 105, 36, { align: "center" });
+        try {
+            // Load Logo
+            const logo = await loadImage("/Logo-UDIPSAI.jpeg");
 
-        doc.setFontSize(14);
-        doc.setTextColor(200, 0, 0);
-        doc.text("REPORTE DE HISTORIAL DE CITAS", 105, 46, { align: "center" });
+            // Add Logo (Centered)
+            const logoWidth = 50;
+            const logoHeight = (logo.height * logoWidth) / logo.width;
+            doc.addImage(logo, "JPEG", (210 - logoWidth) / 2, 10, logoWidth, logoHeight); // A4 width is 210mm
 
-        // Patient Info
-        doc.setFontSize(10);
-        doc.setTextColor(0, 0, 0);
-        doc.text(`PACIENTE: ${reporte.pacienteNombreCompleto}`, 14, 56);
-        doc.text(`CÉDULA: ${cedula}`, 14, 62);
-        doc.text(`FECHA DE EMISIÓN: ${new Date().toLocaleString()}`, 140, 56);
+            let yPos = 10 + logoHeight + 5;
 
-        // Table
-        const tableColumn = ["FECHA", "HORA", "PROFESIONAL", "ÁREA", "ESTADO"];
-        const tableRows: any[] = [];
+            // Institution Name
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(10);
+            doc.setTextColor(50, 50, 50); // Dark Gray
+            doc.text("UNIDAD DE DIAGNOSTICO, INVESTIGACION PSICOPEDAGOGICA Y", 105, yPos, { align: "center" });
+            yPos += 5;
+            doc.text("APOYO A LA INCLUSION \"UDIPSAI\"", 105, yPos, { align: "center" });
 
-        reporte.citas.forEach((cita) => {
-            const citaData = [
-                cita.fecha,
-                `${cita.hora} - ${cita.horaFin || "?"}`,
-                cita.profesional,
-                cita.especialidad,
-                cita.estado || "PENDIENTE",
-            ];
-            tableRows.push(citaData);
-        });
+            yPos += 10;
 
-        autoTable(doc, {
-            head: [tableColumn],
-            body: tableRows,
-            startY: 70,
-            headStyles: { fillColor: [200, 0, 0] }, // Red header
-        });
+            // Title
+            doc.setFontSize(14);
+            doc.setTextColor(180, 0, 0); // Red
+            doc.text("REPORTE DE HISTORIAL DE CITAS", 105, yPos, { align: "center" });
+            // Underline title
+            doc.setDrawColor(220, 220, 220); // Light gray
+            doc.line(70, yPos + 2, 140, yPos + 2);
 
-        doc.save(`Reporte_Citas_${cedula}.pdf`);
+            yPos += 10;
+
+            // Patient Info Card (Gray Background Rect)
+            doc.setFillColor(249, 250, 251); // Gray-50
+            doc.setDrawColor(229, 231, 235); // Gray-200
+            doc.roundedRect(14, yPos, 182, 35, 3, 3, 'FD'); // Filled and Stroked
+
+            yPos += 8;
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(8);
+            doc.setTextColor(107, 114, 128); // Gray-500
+            doc.text("PACIENTE", 20, yPos);
+
+            doc.text("CÉDULA", 140, yPos);
+
+            yPos += 6;
+
+            doc.setFont("helvetica", "bold");
+            doc.setFontSize(11);
+            doc.setTextColor(17, 24, 39); // Gray-900
+            doc.text(reporte.pacienteNombreCompleto.toUpperCase(), 20, yPos);
+            doc.text(cedula, 140, yPos);
+
+            yPos += 12;
+
+            // Separator in card
+            doc.setDrawColor(229, 231, 235);
+            doc.line(20, yPos, 190, yPos);
+
+            yPos += 6;
+
+            doc.setFont("helvetica", "normal");
+            doc.setFontSize(8);
+            doc.setTextColor(156, 163, 175); // Gray-400
+            doc.text(`FECHA DE EMISIÓN: ${new Date().toLocaleString()}`, 190, yPos, { align: "right" });
+
+            // Table
+            let tableColumn = ["FECHA", "HORA", "PROFESIONAL", "ÁREA"];
+            if (tipoReporte === "SECRETARIA") {
+                tableColumn.push("ESTADO");
+            }
+
+            const tableRows: any[] = [];
+
+            reporte.citas.forEach((cita) => {
+                const citaData = [
+                    cita.fecha,
+                    `${cita.hora} - ${cita.horaFin || "?"}`,
+                    cita.profesional,
+                    cita.especialidad,
+                ];
+                if (tipoReporte === "SECRETARIA") {
+                    citaData.push(cita.estado || "PENDIENTE");
+                }
+                tableRows.push(citaData);
+            });
+
+            autoTable(doc, {
+                head: [tableColumn],
+                body: tableRows,
+                startY: yPos + 15,
+                theme: 'grid',
+                headStyles: {
+                    fillColor: [180, 0, 0], // Red header
+                    textColor: [255, 255, 255],
+                    fontSize: 9,
+                    fontStyle: 'bold',
+                    halign: 'center'
+                },
+                bodyStyles: {
+                    fontSize: 9,
+                    textColor: [50, 50, 50]
+                },
+                alternateRowStyles: {
+                    fillColor: [250, 250, 250]
+                },
+                columnStyles: {
+                    0: { halign: 'center' }, // Fecha
+                    1: { halign: 'center' }, // Hora
+                    4: { halign: 'center' }  // Estado
+                },
+                didDrawPage: (data) => {
+                    // Footer
+                    doc.setFontSize(8);
+                    doc.setTextColor(150, 150, 150);
+                    doc.text(`Generado por Sistema UDIPSAI - ${new Date().getFullYear()}`, 105, 290, { align: "center" });
+                    doc.text(`Página ${data.pageNumber}`, 195, 290, { align: "right" });
+                }
+            });
+
+            doc.save(`Reporte_Citas_${cedula}.pdf`);
+
+        } catch (err) {
+            console.error("Error generating PDF", err);
+            toast.error("Error al generar el PDF");
+        }
     };
 
     return (
@@ -119,6 +213,63 @@ const ReporteCitas = () => {
                         <p className="text-sm text-gray-500 mb-6">Ingrese la cédula para consultar</p>
 
                         <div className="space-y-4">
+                            <div className="text-left bg-gray-50 p-3 rounded-lg border border-gray-200">
+                                <label className="block text-xs font-bold uppercase text-gray-700 mb-2">Tipo de Reporte</label>
+                                <div className="flex flex-col gap-2">
+                                    <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                            type="radio"
+                                            name="reportType"
+                                            value="SECRETARIA"
+                                            checked={tipoReporte === "SECRETARIA"}
+                                            onChange={() => setTipoReporte("SECRETARIA")}
+                                            className="text-red-600 focus:ring-red-500"
+                                        />
+                                        <span className="text-sm text-gray-700">Secretaría (Completo)</span>
+                                    </label>
+
+                                    {/* Sub-options for Secretary */}
+                                    {tipoReporte === "SECRETARIA" && (
+                                        <div className="ml-6 flex flex-col gap-1 mt-1 border-l-2 border-red-100 pl-2">
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="alcance"
+                                                    value="RAPIDO"
+                                                    checked={alcance === "RAPIDO"}
+                                                    onChange={() => setAlcance("RAPIDO")}
+                                                    className="w-3 h-3 text-red-500 focus:ring-red-400"
+                                                />
+                                                <span className="text-xs text-gray-600">Últimas 10 Citas (Rápido)</span>
+                                            </label>
+                                            <label className="flex items-center gap-2 cursor-pointer">
+                                                <input
+                                                    type="radio"
+                                                    name="alcance"
+                                                    value="COMPLETO"
+                                                    checked={alcance === "COMPLETO"}
+                                                    onChange={() => setAlcance("COMPLETO")}
+                                                    className="w-3 h-3 text-red-500 focus:ring-red-400"
+                                                />
+                                                <span className="text-xs text-gray-600">Todo el Historial</span>
+                                            </label>
+                                        </div>
+                                    )}
+
+                                    <label className="flex items-center gap-2 cursor-pointer mt-2">
+                                        <input
+                                            type="radio"
+                                            name="reportType"
+                                            value="PADRES"
+                                            checked={tipoReporte === "PADRES"}
+                                            onChange={() => setTipoReporte("PADRES")}
+                                            className="text-red-600 focus:ring-red-500"
+                                        />
+                                        <span className="text-sm text-gray-700">Padres (Solo Pendientes)</span>
+                                    </label>
+                                </div>
+                            </div>
+
                             <div className="text-left">
                                 <label className="block text-xs font-bold uppercase text-gray-700 mb-1">Cédula del Paciente</label>
                                 <div className="relative">
@@ -223,7 +374,9 @@ const ReporteCitas = () => {
                                             <th className="px-6 py-3 font-bold tracking-wider">Hora</th>
                                             <th className="px-6 py-3 font-bold tracking-wider">Profesional</th>
                                             <th className="px-6 py-3 font-bold tracking-wider">Área</th>
-                                            <th className="px-6 py-3 font-bold tracking-wider text-center">Estado</th>
+                                            {tipoReporte === "SECRETARIA" && (
+                                                <th className="px-6 py-3 font-bold tracking-wider text-center">Estado</th>
+                                            )}
                                         </tr>
                                     </thead>
                                     <tbody className="divide-y divide-gray-200 bg-white">
@@ -234,18 +387,20 @@ const ReporteCitas = () => {
                                                     <td className="px-6 py-4 text-gray-600 font-medium whitespace-nowrap">{cita.hora} - {cita.horaFin || "?"}</td>
                                                     <td className="px-6 py-4 text-gray-700 uppercase font-medium text-xs">{cita.profesional}</td>
                                                     <td className="px-6 py-4 text-gray-600 text-xs">{cita.especialidad}</td>
-                                                    <td className="px-6 py-4 text-center">
-                                                        <span className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border ${cita.estado === 'FINALIZADA' || cita.estado === 'ASISTIDO' ? 'bg-gray-100 text-gray-800 border-gray-300' :
-                                                            'bg-white text-red-700 border-red-200'
-                                                            }`}>
-                                                            {cita.estado || "PENDIENTE"}
-                                                        </span>
-                                                    </td>
+                                                    {tipoReporte === "SECRETARIA" && (
+                                                        <td className="px-6 py-4 text-center">
+                                                            <span className={`inline-flex px-2.5 py-1 rounded-full text-[10px] font-bold uppercase tracking-wide border ${cita.estado === 'FINALIZADA' || cita.estado === 'ASISTIDO' ? 'bg-gray-100 text-gray-800 border-gray-300' :
+                                                                'bg-white text-red-700 border-red-200'
+                                                                }`}>
+                                                                {cita.estado || "PENDIENTE"}
+                                                            </span>
+                                                        </td>
+                                                    )}
                                                 </tr>
                                             ))
                                         ) : (
                                             <tr>
-                                                <td colSpan={5} className="px-6 py-12 text-center text-gray-500 italic bg-gray-50">
+                                                <td colSpan={tipoReporte === "SECRETARIA" ? 5 : 4} className="px-6 py-12 text-center text-gray-500 italic bg-gray-50">
                                                     No se encontraron citas registradas para este paciente en el historial que cumplan los criterios.
                                                 </td>
                                             </tr>

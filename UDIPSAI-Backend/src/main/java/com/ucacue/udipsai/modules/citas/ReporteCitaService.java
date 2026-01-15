@@ -30,9 +30,12 @@ public class ReporteCitaService {
     @Autowired
     private CitaRepository citaRepository;
 
-    public ReporteCitaRespuestaDTO generarReportePorPaciente(Integer fichaPaciente) {
-        // Obtener las ultimas 15 citas directamente de la tabla CitaEntity
-        Pageable pageable = PageRequest.of(0, 15, Sort.by("fecha").descending());
+    public ReporteCitaRespuestaDTO generarReportePorPaciente(Integer fichaPaciente, String tipoReporte,
+            String alcance) {
+        int limit = "COMPLETO".equalsIgnoreCase(alcance) ? 5000 : 10;
+
+        // Obtener las ultimas N citas dependiendo del alcance
+        Pageable pageable = PageRequest.of(0, limit, Sort.by("fecha").descending());
         Page<CitaEntity> paginaCitas = citaRepository.findAllByFichaPaciente(Long.valueOf(fichaPaciente), pageable);
 
         List<CitaEntity> listaCitas = paginaCitas.getContent();
@@ -56,9 +59,15 @@ public class ReporteCitaService {
                 .filter(cita -> {
                     if (cita.getEstado() == null)
                         return false;
-                    // Keep only PENDIENTE and FINALIZADA (Realizadas)
+
                     String estado = cita.getEstado().name();
-                    return estado.equals("PENDIENTE") || estado.equals("FINALIZADA");
+                    if ("PADRES".equalsIgnoreCase(tipoReporte)) {
+                        return estado.equals("PENDIENTE");
+                    } else {
+                        // SECRETARIA (default)
+                        return estado.equals("PENDIENTE") || estado.equals("FINALIZADA")
+                                || estado.equals("FALTA_INJUSTIFICADA");
+                    }
                 })
                 .map(cita -> {
                     LocalTime horaInicio = null;
@@ -98,8 +107,9 @@ public class ReporteCitaService {
         return respuesta;
     }
 
-    public Optional<ReporteCitaRespuestaDTO> generarReportePorCedula(String cedula) {
+    public Optional<ReporteCitaRespuestaDTO> generarReportePorCedula(String cedula, String tipoReporte,
+            String alcance) {
         return pacienteRepository.findByCedula(cedula)
-                .map(paciente -> generarReportePorPaciente(paciente.getId()));
+                .map(paciente -> generarReportePorPaciente(paciente.getId(), tipoReporte, alcance));
     }
 }
