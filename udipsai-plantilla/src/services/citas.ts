@@ -102,4 +102,25 @@ export const citasService = {
             throw error;
         }
     },
+
+    obtenerPorProfesional: async (profesionalId: number | string, page: number = 0, size: number = 100) => {
+        try {
+            const response = await api.get(`/citas/profesional/${profesionalId}`, {
+                params: { page, size }
+            });
+            return response.data;
+        } catch (error) {
+            console.error("Error al obtener citas por profesional:", error);
+            throw error;
+        }
+    },
+    obtenerResumen: async (profesionalId: number | string) => {
+        try {
+            const response = await api.get(`/citas/resumen/${profesionalId}`);
+            return response.data;
+        } catch (error) {
+            console.error("Error al obtener resumen de citas:", error);
+            throw error;
+        }
+    },
 };

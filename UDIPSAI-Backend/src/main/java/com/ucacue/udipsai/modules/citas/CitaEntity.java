@@ -57,7 +57,7 @@ public class CitaEntity {
     private LocalDate fechaModificacion;
 
     public enum Estado {
-        PENDIENTE, ASISTIDO, CANCELADA, NO_ASISTIDO
+        PENDIENTE, FINALIZADA, CANCELADA, FALTA_INJUSTIFICADA
     }
 
     // Métodos para manejar auditoría

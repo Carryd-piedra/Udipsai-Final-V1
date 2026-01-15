@@ -76,7 +76,7 @@ public class CitaController {
     @GetMapping("/finalizadas")
     public ResponseEntity<Page<CitaDTO>> obtenerCitasFinalizadas(
             @PageableDefault(page = 0, size = 5) Pageable pageable, HttpServletRequest request) {
-        return citaServ.obtenerCitasPorEstado(CitaEntity.Estado.ASISTIDO, pageable, request);
+        return citaServ.obtenerCitasPorEstado(CitaEntity.Estado.FINALIZADA, pageable, request);
     }
 
     // Obtener citas con estado CANCELADA.
@@ -159,5 +159,11 @@ public class CitaController {
             @PageableDefault(page = 0, size = 5, sort = "fechaModificacionCita", direction = Sort.Direction.ASC) Pageable pageable,
             HttpServletRequest request) {
         return (ResponseEntity<?>) citaServ.obtenerCitasCompletasPorPaciente(id, pageable);
+    }
+
+    // Obtener Resumen Dashboard
+    @GetMapping("/resumen/{profesionalId}")
+    public ResponseEntity<?> obtenerResumenDashboard(@PathVariable Long profesionalId) {
+        return citaServ.obtenerResumenDashboard(profesionalId);
     }
 }

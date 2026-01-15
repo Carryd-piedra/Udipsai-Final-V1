@@ -55,4 +55,9 @@ public interface CitaRepository extends JpaRepository<CitaEntity, Long> {
                         "(:filtro IS NULL OR CAST(c.fichaPaciente AS string) LIKE %:filtro%)")
         Page<CitaEntity> findCitasFiltro(@Param("filtro") String filtro, Pageable pageable);
 
+        // Count methods for dashboard
+        long countByProfesionalIdAndFecha(Long profesionalId, LocalDate fecha);
+
+        long countByProfesionalIdAndEstado(Long profesionalId, CitaEntity.Estado estado);
+
 }
