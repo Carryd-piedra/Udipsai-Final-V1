@@ -1,6 +1,5 @@
 package com.ucacue.udipsai.modules.citas;
 
-import com.ucacue.udipsai.modules.especialistas.repository.EspecialistaRepository;
 import com.ucacue.udipsai.modules.paciente.repository.PacienteRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -24,7 +23,7 @@ public class ReporteCitaService {
     private PacienteRepository pacienteRepository;
 
     @Autowired
-    private EspecialistaRepository especialistaRepository;
+    private com.ucacue.udipsai.modules.usuarios.repository.UsuarioAtencionRepository usuarioAtencionRepository;
 
     public ReporteCitaRespuestaDTO generarReportePorPaciente(Integer fichaPaciente) {
         // Obtener las ultimas 15 citas
@@ -57,16 +56,8 @@ public class ReporteCitaService {
 
             String nombreProfesional = "Desconocido";
             if (cita.getIdProfesional() != null) {
-                nombreProfesional = especialistaRepository.findById(cita.getIdProfesional())
-                        .map(p -> {
-                            // Asumiendo que Especialista tiene getters directos o via usuario, por ahora
-                            // uso un placeholder o metodo probable
-                            // Al ver el archivo corregire si es necesario.
-                            // Previamente vi EspecialistaDTO con nombresApellidos.
-                            // Si Entity tiene nombresApellidos directo es facil. Si no, ajustar.
-                            // Por ahora pondre map simple, lo corregire al escribir si veo el archivo.
-                            return p.getNombresApellidos();
-                        })
+                nombreProfesional = usuarioAtencionRepository.findById(cita.getIdProfesional())
+                        .map(p -> p.getNombresApellidos())
                         .orElse("Desconocido");
             }
 

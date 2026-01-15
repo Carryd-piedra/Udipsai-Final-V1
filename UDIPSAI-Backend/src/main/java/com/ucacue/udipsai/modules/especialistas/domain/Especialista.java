@@ -16,40 +16,10 @@ import java.util.List;
 @Data
 @NoArgsConstructor
 @AllArgsConstructor
-public class Especialista {
+public class Especialista extends com.ucacue.udipsai.modules.usuarios.domain.UsuarioAtencion {
 
-    @Id
-    @GeneratedValue(strategy = GenerationType.IDENTITY)
-    private Integer id;
-
-    @Column(name = "cedula", unique = true, nullable = false, length = 15)
-    private String cedula;
-
-    @Column(name = "nombres_apellidos", nullable = false)
-    private String nombresApellidos;
-
-    @Column(name = "contrasenia")
-    private String contrasenia;
-
-    @Column(name = "foto_url")
-    private String fotoUrl;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "especialidad_id")
-    private Especialidad especialidad;
-
-    @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "sede_id")
-    private Sede sede;
-    
     @OneToMany(mappedBy = "especialista", fetch = FetchType.LAZY)
     @ToString.Exclude
     private List<Pasante> pasantesAsignados;
 
-    @Column(name = "activo", nullable = false)
-    private Boolean activo = true;
-
-    @OneToOne(cascade = CascadeType.ALL)
-    @JoinColumn(name = "permisos_id")
-    private Permisos permisos;
 }

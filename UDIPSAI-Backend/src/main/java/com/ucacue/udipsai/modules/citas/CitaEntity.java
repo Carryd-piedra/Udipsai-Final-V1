@@ -28,8 +28,9 @@ public class CitaEntity {
     @Column(name = "ficha_paciente", nullable = false)
     private Long fichaPaciente;
 
-    @Column(name = "id_profesional", nullable = false)
-    private Long profesionalId;
+    @ManyToOne
+    @JoinColumn(name = "usuario_atencion_id", nullable = false)
+    private com.ucacue.udipsai.modules.usuarios.domain.UsuarioAtencion usuarioAtencion;
 
     @ManyToOne
     @JoinColumn(name = "id_especialidad", nullable = false)

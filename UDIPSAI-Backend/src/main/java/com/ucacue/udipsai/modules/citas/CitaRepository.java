@@ -23,15 +23,15 @@ public interface CitaRepository extends JpaRepository<CitaEntity, Long> {
                         LocalTime hora,
                         Long fichaPaciente);
 
-        boolean existsByEstadoAndFechaAndHoraInicioAndProfesionalId(CitaEntity.Estado estado, LocalDate fecha,
+        boolean existsByEstadoAndFechaAndHoraInicioAndUsuarioAtencion_Id(CitaEntity.Estado estado, LocalDate fecha,
                         LocalTime hora,
-                        Long profesionalId);
+                        Integer usuarioAtencionId);
 
         Page<CitaEntity> findAll(Pageable pageable);
 
         Page<CitaEntity> findAllByFichaPaciente(Long id, Pageable pageable);
 
-        Page<CitaEntity> findAllByProfesionalId(Long profesionalId, Pageable pageable);
+        Page<CitaEntity> findAllByUsuarioAtencion_Id(Integer usuarioAtencionId, Pageable pageable);
 
         Page<CitaEntity> findAllByEspecialidad_Id(Integer especialidadId, Pageable pageable);
 
@@ -45,8 +45,8 @@ public interface CitaRepository extends JpaRepository<CitaEntity, Long> {
         Page<CitaEntity> findCitasByFilter(@Param("idCita") Long idCita, @Param("fichaPaciente") Long fichaPaciente,
                         Pageable pageable);
 
-        @Query("SELECT c FROM CitaEntity c WHERE c.profesionalId = :profesionalId AND c.fecha = :fecha AND c.estado != 'CANCELADA'")
-        List<CitaEntity> findCitasOcupadasByProfesionalAndFecha(Long profesionalId, LocalDate fecha);
+        @Query("SELECT c FROM CitaEntity c WHERE c.usuarioAtencion.id = :usuarioAtencionId AND c.fecha = :fecha AND c.estado != 'CANCELADA'")
+        List<CitaEntity> findCitasOcupadasByProfesionalAndFecha(Integer usuarioAtencionId, LocalDate fecha);
 
         List<CitaEntity> findAllByEstadoAndFechaBefore(CitaEntity.Estado estado, LocalDate fecha);
 
