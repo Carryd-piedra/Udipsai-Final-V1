@@ -19,34 +19,99 @@ public class DataSeeder implements CommandLineRunner {
 
     @Override
     public void run(String... args) throws Exception {
-        if (especialistaRepository.count() == 0) {
-            Permisos adminPermisos = new Permisos();
-            adminPermisos.setPacientes(true);
-            adminPermisos.setPasantes(true);
-            adminPermisos.setSedes(true);
-            adminPermisos.setEspecialistas(true);
-            adminPermisos.setEspecialidades(true);
-            adminPermisos.setAsignaciones(true);
-            adminPermisos.setRecursos(true);
-            adminPermisos.setInstitucionesEducativas(true);
-            adminPermisos.setHistoriaClinica(true);
-            adminPermisos.setFonoAudiologia(true);
-            adminPermisos.setPsicologiaClinica(true);
-            adminPermisos.setPsicologiaEducativa(true);
+        // Buscar si ya existe el admin
+        java.util.Optional<Especialista> adminOpt = especialistaRepository.findByCedula("0101010101");
 
-            Especialista admin = new Especialista();
+        Especialista admin;
+        Permisos adminPermisos;
+
+        if (adminOpt.isPresent()) {
+            // Si existe, actualizamos sus permisos
+            admin = adminOpt.get();
+            adminPermisos = admin.getPermisos();
+            if (adminPermisos == null) {
+                adminPermisos = new Permisos();
+            }
+            System.out.println("Actualizando permisos del ADMINISTRADOR (0101010101)...");
+        } else {
+            // Si no existe, lo creamos
+            admin = new Especialista();
             admin.setCedula("0101010101");
             admin.setNombresApellidos("Administrador Inicial");
             admin.setContrasenia(passwordEncoder.encode("admin123"));
             admin.setActivo(true);
-            admin.setPermisos(adminPermisos);
 
-            especialistaRepository.save(admin);
-            System.out.println("------------------------------------------------");
-            System.out.println("ADMINISTRADOR INICIAL CREADO CON PERMISOS");
-            System.out.println("Cédula: 0101010101");
-            System.out.println("Contraseña: admin123");
-            System.out.println("------------------------------------------------");
+            adminPermisos = new Permisos();
+            System.out.println("Creando ADMINISTRADOR (0101010101) por defecto...");
         }
+
+        // Configurar TODOS los permisos a TRUE (Granulares y Generales)
+        adminPermisos.setPacientes(true);
+        adminPermisos.setPacientesCrear(true);
+        adminPermisos.setPacientesEditar(true);
+        adminPermisos.setPacientesEliminar(true);
+
+        adminPermisos.setPasantes(true);
+        adminPermisos.setPasantesCrear(true);
+        adminPermisos.setPasantesEditar(true);
+        adminPermisos.setPasantesEliminar(true);
+
+        adminPermisos.setSedes(true);
+        adminPermisos.setSedesCrear(true);
+        adminPermisos.setSedesEditar(true);
+        adminPermisos.setSedesEliminar(true);
+
+        adminPermisos.setEspecialistas(true);
+        adminPermisos.setEspecialistasCrear(true);
+        adminPermisos.setEspecialistasEditar(true);
+        adminPermisos.setEspecialistasEliminar(true);
+
+        adminPermisos.setEspecialidades(true);
+        adminPermisos.setEspecialidadesCrear(true);
+        adminPermisos.setEspecialidadesEditar(true);
+        adminPermisos.setEspecialidadesEliminar(true);
+
+        adminPermisos.setAsignaciones(true);
+        adminPermisos.setAsignacionesCrear(true);
+        adminPermisos.setAsignacionesEditar(true);
+        adminPermisos.setAsignacionesEliminar(true);
+
+        adminPermisos.setRecursos(true);
+        adminPermisos.setRecursosCrear(true);
+        adminPermisos.setRecursosEditar(true);
+        adminPermisos.setRecursosEliminar(true);
+
+        adminPermisos.setInstitucionesEducativas(true);
+        adminPermisos.setInstitucionesEducativasCrear(true);
+        adminPermisos.setInstitucionesEducativasEditar(true);
+        adminPermisos.setInstitucionesEducativasEliminar(true);
+
+        adminPermisos.setHistoriaClinica(true);
+        adminPermisos.setHistoriaClinicaCrear(true);
+        adminPermisos.setHistoriaClinicaEditar(true);
+        adminPermisos.setHistoriaClinicaEliminar(true);
+
+        adminPermisos.setFonoAudiologia(true);
+        adminPermisos.setFonoAudiologiaCrear(true);
+        adminPermisos.setFonoAudiologiaEditar(true);
+        adminPermisos.setFonoAudiologiaEliminar(true);
+
+        adminPermisos.setPsicologiaClinica(true);
+        adminPermisos.setPsicologiaClinicaCrear(true);
+        adminPermisos.setPsicologiaClinicaEditar(true);
+        adminPermisos.setPsicologiaClinicaEliminar(true);
+
+        adminPermisos.setPsicologiaEducativa(true);
+        adminPermisos.setPsicologiaEducativaCrear(true);
+        adminPermisos.setPsicologiaEducativaEditar(true);
+        adminPermisos.setPsicologiaEducativaEliminar(true);
+
+        // Guardar cambios
+        admin.setPermisos(adminPermisos);
+        especialistaRepository.save(admin);
+
+        System.out.println("------------------------------------------------");
+        System.out.println("ADMINISTRADOR ACTUALIZADO/CREADO EXITOSAMENTE");
+        System.out.println("------------------------------------------------");
     }
 }

@@ -47,8 +47,6 @@ public class CitaService {
     @Autowired
     private EspecialistaService especialistaService;
 
-    
-
     @Autowired
     private EspecialidadRepository especialidadRepo;
 
@@ -354,6 +352,16 @@ public class CitaService {
             }
         }
 
+        Especialidad especialidadEntity = especialidadRepo.findById(dto.getEspecialidadId().intValue())
+                .orElseThrow(() -> new EntityNotFoundException(
+                        "Especialidad con id " + dto.getEspecialidadId() + " no encontrada"));
+
+        EspecialidadDTO especialidad = new EspecialidadDTO(especialidadEntity.getId(), especialidadEntity.getArea(),
+                null);
+
+        EspecialidadDTO especialidadUsuario = new EspecialidadDTO(profesional.getEspecialidad().getId(),
+                profesional.getEspecialidad().getArea(), null);
+
         EspecialistaDTO especialistaDTO = EspecialistaDTO.builder()
                 .id(profesional.getId())
                 .cedula(profesional.getCedula())
@@ -361,6 +369,7 @@ public class CitaService {
                 .fotoUrl(profesional.getFotoUrl())
                 .activo(profesional.getActivo())
                 .permisos(profesional.getPermisos())
+                .especialidad(especialidadUsuario)
                 .sede(profesional.getSede() != null
                         ? new com.ucacue.udipsai.modules.sedes.dto.SedeDTO(profesional.getSede().getId(),
                                 profesional.getSede().getNombre())
@@ -391,7 +400,7 @@ public class CitaService {
         citaEncontrada.setEstado(CitaEntity.Estado.PENDIENTE);
         // Tambien deberiamos actualizar los otros campos si cambiaron
         citaEncontrada.setUsuarioAtencion(profesional);
-        citaEncontrada.setEspecialidad(especialidad);
+        citaEncontrada.setEspecialidad(especialidadEntity);
 
         CitaEntity citaGuardada = citaRepo.save(citaEncontrada);
         CitaDTO citaDto = mapearDTO(citaGuardada, paciente, especialistaDTO, especialidad);
@@ -640,8 +649,22 @@ public class CitaService {
             Optional<Paciente> pacienteOpt = pacienteRepo.findById(cita.getFichaPaciente().intValue());
             if (pacienteOpt.isPresent()) {
                 PacienteDTO paciente = pacienteService.convertirADTO(pacienteOpt.get());
-                EspecialistaDTO especialista = especialistaService
-                        .obtenerEspecialistaPorId(cita.getProfesionalId().intValue());
+                com.ucacue.udipsai.modules.usuarios.domain.UsuarioAtencion ua = cita.getUsuarioAtencion();
+                EspecialistaDTO especialista = EspecialistaDTO.builder()
+                        .id(ua.getId())
+                        .cedula(ua.getCedula())
+                        .nombresApellidos(ua.getNombresApellidos())
+                        .fotoUrl(ua.getFotoUrl())
+                        .activo(ua.getActivo())
+                        .permisos(ua.getPermisos())
+                        .especialidad(
+                                new EspecialidadDTO(ua.getEspecialidad().getId(), ua.getEspecialidad().getArea(), null))
+                        .sede(ua.getSede() != null
+                                ? new com.ucacue.udipsai.modules.sedes.dto.SedeDTO(ua.getSede().getId(),
+                                        ua.getSede().getNombre())
+                                : null)
+                        .build();
+
                 Especialidad especialidadEntity = cita.getEspecialidad();
                 EspecialidadDTO especialidad = new EspecialidadDTO(especialidadEntity.getId(),
                         especialidadEntity.getArea(), null);
@@ -772,8 +795,9 @@ public class CitaService {
         logger.info("obtenerResumenDashboard()");
         logger.info("Obteniendo resumen dashboard para profesional {}", profesionalId);
 
-        long citasHoy = citaRepo.countByProfesionalIdAndFecha(profesionalId, LocalDate.now());
-        long pendientesTotales = citaRepo.countByProfesionalIdAndEstado(profesionalId, CitaEntity.Estado.PENDIENTE);
+        long citasHoy = citaRepo.countByUsuarioAtencion_IdAndFecha(profesionalId.intValue(), LocalDate.now());
+        long pendientesTotales = citaRepo.countByUsuarioAtencion_IdAndEstado(profesionalId.intValue(),
+                CitaEntity.Estado.PENDIENTE);
 
         java.util.Map<String, Object> response = new java.util.HashMap<>();
         response.put("citasHoy", citasHoy);

@@ -56,8 +56,9 @@ public interface CitaRepository extends JpaRepository<CitaEntity, Long> {
         Page<CitaEntity> findCitasFiltro(@Param("filtro") String filtro, Pageable pageable);
 
         // Count methods for dashboard
-        long countByProfesionalIdAndFecha(Long profesionalId, LocalDate fecha);
+        // Count methods for dashboard
+        long countByUsuarioAtencion_IdAndFecha(Integer usuarioAtencionId, LocalDate fecha);
 
-        long countByProfesionalIdAndEstado(Long profesionalId, CitaEntity.Estado estado);
+        long countByUsuarioAtencion_IdAndEstado(Integer usuarioAtencionId, CitaEntity.Estado estado);
 
 }

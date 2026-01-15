@@ -111,11 +111,11 @@ const CitaInfoModal: React.FC<CitaInfoModalProps> = ({
                             <div className="mt-1">
                                 <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium uppercase
                                     ${extendedProps.status === 'PENDIENTE' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300' :
-                                        extendedProps.status === 'ASISTIDO' || extendedProps.status === 'FINALIZADA' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
-                                            extendedProps.status === 'NO_ASISTIDO' || extendedProps.status === 'FALTA_INJUSTIFICADA' || extendedProps.status === 'CANCELADA' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' :
+                                        extendedProps.status === 'FINALIZADA' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
+                                            extendedProps.status === 'NO_JUSTIFICADA' || extendedProps.status === 'CANCELADA' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' :
                                                 'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300'
                                     }`}>
-                                    {extendedProps.status || 'PENDIENTE'}
+                                    {extendedProps.status === 'NO_JUSTIFICADA' ? 'NO JUSTIFICADA' : (extendedProps.status || 'PENDIENTE')}
                                 </span>
                             </div>
                         </div>
@@ -123,32 +123,41 @@ const CitaInfoModal: React.FC<CitaInfoModalProps> = ({
 
                     {/* Botones de acción */}
                     <div className="flex justify-end gap-3 mt-6">
-                        {/* Mostrar Asistido si es PENDIENTE o NO ASISTIO (para corregir) */}
+                        {/* Mostrar Finalizar (Asistido) si es PENDIENTE o NO_JUSTIFICADA */}
                         {(extendedProps.status === 'PENDIENTE' ||
-                            extendedProps.status === 'FALTA_INJUSTIFICADA' ||
-                            extendedProps.status === 'NO_ASISTIDO') && onMarkAsAttended && (
+                            extendedProps.status === 'NO_JUSTIFICADA') && onMarkAsAttended && (
                                 <Button
                                     variant="primary"
                                     className="!bg-green-600 hover:!bg-green-700 text-white"
                                     onClick={() => handleStatusChange(() => onMarkAsAttended(cita.id))}
                                     disabled={loading}
                                 >
-                                    Marcar Asistido
+                                    Finalizar Cita
                                 </Button>
                             )}
 
-                        {/* Mostrar No Asistio si es PENDIENTE o FINALIZADA (para corregir) */}
+                        {/* Mostrar No Justificada si es PENDIENTE o FINALIZADA */}
                         {(extendedProps.status === 'PENDIENTE' ||
-                            extendedProps.status === 'FINALIZADA' ||
-                            extendedProps.status === 'ASISTIDO') && onMarkAsNotAttended && (
+                            extendedProps.status === 'FINALIZADA') && onMarkAsNotAttended && (
                                 <Button
                                     variant="danger"
                                     onClick={() => handleStatusChange(() => onMarkAsNotAttended(cita.id))}
                                     disabled={loading}
                                 >
-                                    No Asistió
+                                    No Justificada
                                 </Button>
                             )}
+
+                        {/* Boton Reagendar */}
+                        {(extendedProps.status === 'PENDIENTE' || extendedProps.status === 'NO_JUSTIFICADA') && onReschedule && (
+                            <Button
+                                variant="outline"
+                                className="!border-blue-600 !text-blue-600 hover:!bg-blue-50 dark:!border-blue-400 dark:!text-blue-400 dark:hover:!bg-blue-900/20"
+                                onClick={() => onReschedule(cita.id)}
+                            >
+                                Reagendar
+                            </Button>
+                        )}
 
                         {/* Boton Cerrar siempre visible si no hay acciones de gestion primaria */}
                         <Button
