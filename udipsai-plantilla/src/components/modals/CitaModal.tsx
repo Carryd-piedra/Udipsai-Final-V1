@@ -331,7 +331,10 @@ const CitaModal: React.FC<CitaModalProps> = ({
             };
             console.log("Sending payload:", payload);
 
+            console.log("Sending payload:", payload);
+
             if (appointmentId) {
+                console.log("Reagendando cita ID:", appointmentId);
                 await citasService.reagendar(appointmentId, payload);
                 toast.success("Cita reagendada exitosamente");
             } else {

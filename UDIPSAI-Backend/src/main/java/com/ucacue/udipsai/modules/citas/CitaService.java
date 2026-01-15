@@ -310,35 +310,45 @@ public class CitaService {
         }
 
         // New Overlap Validation for Duration
+        logger.info("VALIDANDO RESPALDO (REAGENDAR) - Profesional: {}, Fecha: {}, Hora: {}, Duracion: {}",
+                dto.getProfesionalId(), dto.getFecha(), dto.getHora(), dto.getDuracionMinutes());
+
         int duration = (dto.getDuracionMinutes() != null && dto.getDuracionMinutes() > 0)
                 ? dto.getDuracionMinutes()
                 : 60;
         LocalTime newStart = dto.getHora();
         LocalTime newEnd = newStart.plusMinutes(duration);
+        logger.info("Rango Solicitado: {} - {}", newStart, newEnd);
 
         List<CitaEntity> citasDia = citaRepo.findAllByProfesionalIdAndFecha(dto.getProfesionalId(), dto.getFecha());
+        logger.info("Citas encontradas para el profesional en la fecha: {}", citasDia.size());
 
         for (CitaEntity existing : citasDia) {
-            if (existing.getEstado() == CitaEntity.Estado.CANCELADA) {
+            // Exclude self from check
+            if (existing.getIdCita().equals(citaEncontrada.getIdCita())) {
+                logger.info("Saltando cita actual (Self): {}", existing.getIdCita());
                 continue;
             }
-            // Exclude self from check
-            if (existing.getIdCita().equals(citaEncontrada.getIdCita()))
+
+            if (existing.getEstado() == CitaEntity.Estado.CANCELADA) {
+                logger.info("Saltando cita CANCELADA: {}", existing.getIdCita());
                 continue;
+            }
 
             LocalTime existingStart = existing.getHoraInicio();
             LocalTime existingEnd = existing.getHoraFin();
-
-            logger.info("Verificando conflicto con Cita ID: {} | Hora: {} - {}", existing.getIdCita(), existingStart,
-                    existingEnd);
+            logger.info("Comparando con Cita ID: {} | Estado: {} | Rango: {} - {}",
+                    existing.getIdCita(), existing.getEstado(), existingStart, existingEnd);
 
             if (newStart.isBefore(existingEnd) && newEnd.isAfter(existingStart)) {
-                logger.warn("CONFLICTO DETECTADO: Nueva Cita ({} - {}) vs Existente ({} - {})", newStart, newEnd,
+                logger.warn("CONFLICTO DETECTADO: Nueva ({} - {}) vs Existente ({} - {})", newStart, newEnd,
                         existingStart, existingEnd);
                 throw new IllegalArgumentException(
                         "Especialista " + especialista.getNombresApellidos().trim().toUpperCase()
                                 + " ya tiene una cita ocupada en el rango " + existingStart + " - " + existingEnd
                                 + " que conflicto con el nuevo horario " + newStart + " - " + newEnd);
+            } else {
+                logger.info("NO HAY CONFLICTO con Cita ID: {}", existing.getIdCita());
             }
         }
 
