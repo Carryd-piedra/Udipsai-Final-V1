@@ -94,11 +94,6 @@ public class CitaService {
 
                 return mapearDTO(cita, paciente, especialista, especialidad);
             } else {
-                // Si falta el paciente, retornamos null o manejamos el error.
-                // Para mantener consistencia con obtenerCitasPorEstado, lanzamos excepción o
-                // logueamos.
-                // Aqui opto por saltar o usar placeholders si fuera critico, pero lanzaré
-                // excepcion.
                 throw new EntityNotFoundException("Paciente no encontrado para cita " + cita.getIdCita());
             }
         });
@@ -149,9 +144,6 @@ public class CitaService {
         logger.info("registrarCita()");
         logger.info("Registrando una Cita");
 
-        // Nota: RegistrarCitaDTO podria necesitar actualizacion tambien (areaId ->
-        // especialidadId)
-        // Asumiremos que dto.getAreaId() ahora se refiere a especialidadId
         if (dto.getFichaPaciente() == null || dto.getProfesionalId() == null || dto.getEspecialidadId() == null
                 || dto.getFecha() == null || dto.getHora() == null) {
             throw new IllegalArgumentException("Faltan datos para el registro de la cita");
@@ -210,8 +202,6 @@ public class CitaService {
             LocalTime existingStart = existing.getHoraInicio();
             LocalTime existingEnd = existing.getHoraFin();
 
-            // Check if ranges overlap
-            // Overlap condition: (StartA < EndB) and (EndA > StartB)
             if (newStart.isBefore(existingEnd) && newEnd.isAfter(existingStart)) {
                 throw new IllegalArgumentException(
                         "Especialista " + especialista.getNombresApellidos().trim().toUpperCase()
@@ -219,10 +209,6 @@ public class CitaService {
                                 + " que conflicto con el nuevo horario " + newStart + " - " + newEnd);
             }
         }
-
-        // Validacion Paciente (Misma logica si necesario, pero principal es
-        // Especialista aqui)
-        // ... (Podriamos agregar check similar para Paciente si quisieramos estricto)
 
         CitaEntity cita = new CitaEntity();
         cita.setFecha(dto.getFecha());
@@ -300,9 +286,13 @@ public class CitaService {
 
         citaEncontrada.setFecha(dto.getFecha());
         citaEncontrada.setHoraInicio(dto.getHora());
-        citaEncontrada.setHoraFin(dto.getHora().plusMinutes(60));
+
+        // Use provided duration or default to 60 minutes
+        int duration = (dto.getDuracionMinutes() != null && dto.getDuracionMinutes() > 0) ? dto.getDuracionMinutes()
+                : 60;
+        citaEncontrada.setHoraFin(dto.getHora().plusMinutes(duration));
+
         citaEncontrada.setEstado(CitaEntity.Estado.PENDIENTE);
-        // Tambien deberiamos actualizar los otros campos si cambiaron
         citaEncontrada.setProfesionalId(dto.getProfesionalId());
         citaEncontrada.setEspecialidad(especialidadEntity);
 
@@ -463,9 +453,6 @@ public class CitaService {
     // Cambiar estado de cita a Falta Justificada.
     @Transactional
     public ResponseEntity<?> faltaJustificada(Long idCita) {
-        // Metodo eliminado: faltaJustificada unificado en noAsistido (usar
-        // faltaInjustificada logic -> marcarNoAsistido)
-        // Manteniendo firma para evitar borrar demasiado, pero podria deprecarse.
         return faltaInjustificada(idCita);
     }
 
@@ -556,7 +543,6 @@ public class CitaService {
     }
 
     // Obtener citas por Especialidad (antes Area)
-    // Obtener citas por Especialidad (antes Area)
     @Transactional(readOnly = true)
     public ResponseEntity<Page<CitaDTO>> obtenerCitasPorEspecialidad(Integer idEspecialidad, Pageable pageable) {
         logger.info("obtenerCitasPorEspecialidad()");
@@ -581,9 +567,6 @@ public class CitaService {
 
                 return mapearDTO(cita, paciente, especialista, especialidad);
             } else {
-                // Return null or handle error - consistent with obtenerCitas logic which
-                // throws/fails?
-                // or just skip. internal map lambda requires return.
                 logger.warn("Paciente no encontrado para cita " + cita.getIdCita());
                 return null;
             }
@@ -594,7 +577,7 @@ public class CitaService {
         return new ResponseEntity<>(dtos, HttpStatus.OK);
     }
 
-    // Obtener citas por una lista de especialidades (antes areas)
+    // Obtener citas por una lista de especialidades
     @Transactional(readOnly = true)
     public ResponseEntity<Page<CitaEntity>> obtenerCitasPorEspecialidades(List<Integer> especialidades,
             Pageable pageable) {
