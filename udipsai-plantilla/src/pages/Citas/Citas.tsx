@@ -239,6 +239,28 @@ const Calendar: React.FC = () => {
     }
   };
 
+  const handleMarkAsAttended = async (id: string) => {
+    try {
+      await citasService.finalizar(id);
+      toast.success("Cita finalizada correctamente");
+      loadEvents();
+    } catch (error) {
+      console.error("Error ending cita", error);
+      toast.error("Error al finalizar la cita");
+    }
+  };
+
+  const handleMarkAsNotAttended = async (id: string) => {
+    try {
+      await citasService.marcarFalta(id);
+      toast.success("Falta marcada correctamente");
+      loadEvents();
+    } catch (error) {
+      console.error("Error marking absence", error);
+      toast.error("Error al marcar falta");
+    }
+  };
+
   return (
     <>
       <PageMeta
@@ -333,7 +355,10 @@ const Calendar: React.FC = () => {
                   }
 
                   const calendarApi = calendarRef.current?.getApi();
-                  calendarApi?.changeView("timeGridWeek");
+                  const currentDate = calendarApi?.getDate();
+                  if (calendarApi && currentDate) {
+                    calendarApi.changeView("timeGridWeek", currentDate);
+                  }
                 },
               },
             }}
@@ -359,6 +384,8 @@ const Calendar: React.FC = () => {
         cita={selectedEvent}
         onDelete={handleDeleteCita}
         onReschedule={handleRescheduleCita}
+        onMarkAsAttended={handleMarkAsAttended}
+        onMarkAsNotAttended={handleMarkAsNotAttended}
       />
     </>
   );

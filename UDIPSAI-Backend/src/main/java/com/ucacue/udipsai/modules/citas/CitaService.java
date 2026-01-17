@@ -35,765 +35,813 @@ import java.util.Optional;
 @Service
 public class CitaService {
 
-    @Autowired
-    private CitaRepository citaRepo;
+        @Autowired
+        private CitaRepository citaRepo;
 
-    @Autowired
-    private PacienteRepository pacienteRepo;
+        @Autowired
+        private PacienteRepository pacienteRepo;
 
-    @Autowired
-    private PacienteService pacienteService;
+        @Autowired
+        private PacienteService pacienteService;
 
-    @Autowired
-    private EspecialistaService especialistaService;
+        @Autowired
+        private EspecialistaService especialistaService;
 
-    @Autowired
-    private EspecialidadRepository especialidadRepo;
+        @Autowired
+        private EspecialidadRepository especialidadRepo;
 
-    @Autowired
-    private VistaCitasCompletaRepository vistaCitasCompletaRepository;
+        @Autowired
+        private VistaCitasCompletaRepository vistaCitasCompletaRepository;
 
-    @Autowired
-    private com.ucacue.udipsai.modules.usuarios.repository.UsuarioAtencionRepository usuarioAtencionRepo;
+        @Autowired
+        private com.ucacue.udipsai.modules.usuarios.repository.UsuarioAtencionRepository usuarioAtencionRepo;
 
-    private static final Logger logger = LoggerFactory.getLogger(CitaService.class);
+        private static final Logger logger = LoggerFactory.getLogger(CitaService.class);
 
-    // Mapear de una Cita a DTO.
-    public CitaDTO mapearDTO(CitaEntity cita, PacienteDTO paciente, EspecialistaDTO especialista,
-            EspecialidadDTO especialidad) {
-        CitaDTO dto = new CitaDTO(
-                cita.getIdCita(),
-                cita.getFecha(),
-                cita.getHoraInicio(),
-                cita.getHoraFin(),
-                cita.getEstado().toString(),
-                paciente,
-                especialista,
-                especialidad);
-        return dto;
-    }
-
-    // Obtener todas las Citas.
-    @Transactional(readOnly = true)
-    public ResponseEntity<Page<CitaDTO>> obtenerCitas(Pageable pageable, HttpServletRequest request) {
-        logger.info("obtenerCitas()");
-        logger.info("Obteniendo todas las Citas");
-        Page<CitaEntity> citas = citaRepo.findAll(pageable);
-
-        if (citas.isEmpty()) {
-            Page<CitaDTO> emptyPage = Page.empty(pageable);
-            return new ResponseEntity<>(emptyPage, HttpStatus.OK);
+        // Mapear de una Cita a DTO.
+        public CitaDTO mapearDTO(CitaEntity cita, PacienteDTO paciente, EspecialistaDTO especialista,
+                        EspecialidadDTO especialidad) {
+                CitaDTO dto = new CitaDTO(
+                                cita.getIdCita(),
+                                cita.getFecha(),
+                                cita.getHoraInicio(),
+                                cita.getHoraFin(),
+                                cita.getEstado().toString(),
+                                paciente,
+                                especialista,
+                                especialidad);
+                return dto;
         }
 
-        Page<CitaDTO> dtos = citas.map(cita -> {
-            Optional<Paciente> pacienteOpt = pacienteRepo.findById(cita.getFichaPaciente().intValue());
-            if (pacienteOpt.isPresent()) {
-                PacienteDTO paciente = pacienteService.convertirADTO(pacienteOpt.get());
+        // Obtener todas las Citas.
+        @Transactional(readOnly = true)
+        public ResponseEntity<Page<CitaDTO>> obtenerCitas(Pageable pageable, HttpServletRequest request) {
+                logger.info("obtenerCitas()");
+                logger.info("Obteniendo todas las Citas");
+                Page<CitaEntity> citas = citaRepo.findAll(pageable);
 
-                com.ucacue.udipsai.modules.usuarios.domain.UsuarioAtencion ua = cita.getUsuarioAtencion();
-
-                // Mapeo manual de UsuarioAtencion a EspecialistaDTO
-                // Nota: SedeDTO no se está mapeando porque requeriría más lógica, se pasa null
-                // por ahora o se mapea si Sede entity está cargada
-                com.ucacue.udipsai.modules.sedes.dto.SedeDTO sedeDTO = null;
-                if (ua.getSede() != null) {
-                    sedeDTO = new com.ucacue.udipsai.modules.sedes.dto.SedeDTO(ua.getSede().getId(),
-                            ua.getSede().getNombre());
+                if (citas.isEmpty()) {
+                        Page<CitaDTO> emptyPage = Page.empty(pageable);
+                        return new ResponseEntity<>(emptyPage, HttpStatus.OK);
                 }
 
-                EspecialidadDTO especialidadDTO = new EspecialidadDTO(ua.getEspecialidad().getId(),
-                        ua.getEspecialidad().getArea(), null);
+                Page<CitaDTO> dtos = citas.map(cita -> {
+                        Optional<Paciente> pacienteOpt = pacienteRepo.findById(cita.getFichaPaciente().intValue());
+                        if (pacienteOpt.isPresent()) {
+                                PacienteDTO paciente = pacienteService.convertirADTO(pacienteOpt.get());
+
+                                com.ucacue.udipsai.modules.usuarios.domain.UsuarioAtencion ua = cita
+                                                .getUsuarioAtencion();
+
+                                // Mapeo manual de UsuarioAtencion a EspecialistaDTO
+                                // Nota: SedeDTO no se está mapeando porque requeriría más lógica, se pasa null
+                                // por ahora o se mapea si Sede entity está cargada
+                                com.ucacue.udipsai.modules.sedes.dto.SedeDTO sedeDTO = null;
+                                if (ua.getSede() != null) {
+                                        sedeDTO = new com.ucacue.udipsai.modules.sedes.dto.SedeDTO(ua.getSede().getId(),
+                                                        ua.getSede().getNombre());
+                                }
+
+                                EspecialidadDTO especialidadDTO = new EspecialidadDTO(ua.getEspecialidad().getId(),
+                                                ua.getEspecialidad().getArea(), null);
+
+                                EspecialistaDTO especialista = EspecialistaDTO.builder()
+                                                .id(ua.getId())
+                                                .cedula(ua.getCedula())
+                                                .nombresApellidos(ua.getNombresApellidos())
+                                                .fotoUrl(ua.getFotoUrl())
+                                                .activo(ua.getActivo())
+                                                .permisos(ua.getPermisos())
+                                                .especialidad(especialidadDTO)
+                                                .sede(sedeDTO)
+                                                .build();
+
+                                Especialidad especialidadEntity = cita.getEspecialidad();
+                                EspecialidadDTO especialidad = new EspecialidadDTO(especialidadEntity.getId(),
+                                                especialidadEntity.getArea(), null);
+
+                                return mapearDTO(cita, paciente, especialista, especialidad);
+                        } else {
+                                throw new EntityNotFoundException(
+                                                "Paciente no encontrado para cita " + cita.getIdCita());
+                        }
+                });
+
+                logger.info("200 OK: Citas obtenidas correctamente");
+
+                return new ResponseEntity<>(dtos, HttpStatus.OK);
+        }
+
+        // Obtener una Cita por Id.
+        @Transactional(readOnly = true)
+        public ResponseEntity<?> obtenerCitaPorId(Long idCita, HttpServletRequest request) {
+                logger.info("obtenerCitaPorId()");
+                logger.info("Obteniendo cita con id {}", idCita);
+
+                CitaEntity cita = citaRepo.findById(idCita)
+                                .orElseThrow(() -> new EntityNotFoundException(
+                                                "Cita con id " + idCita + " no encontrada"));
+
+                Paciente pacienteEncontrado = pacienteRepo.findById(cita.getFichaPaciente().intValue())
+                                .orElseThrow(() -> new EntityNotFoundException(
+                                                "Paciente con ficha " + cita.getFichaPaciente()
+                                                                + " asignado a la cita no fue encontrado"));
+
+                PacienteDTO paciente = pacienteService.convertirADTO(pacienteEncontrado);
+
+                com.ucacue.udipsai.modules.usuarios.domain.UsuarioAtencion ua = cita.getUsuarioAtencion();
+
+                EspecialidadDTO especialidadUsuario = new EspecialidadDTO(ua.getEspecialidad().getId(),
+                                ua.getEspecialidad().getArea(), null);
 
                 EspecialistaDTO especialista = EspecialistaDTO.builder()
-                        .id(ua.getId())
-                        .cedula(ua.getCedula())
-                        .nombresApellidos(ua.getNombresApellidos())
-                        .fotoUrl(ua.getFotoUrl())
-                        .activo(ua.getActivo())
-                        .permisos(ua.getPermisos())
-                        .especialidad(especialidadDTO)
-                        .sede(sedeDTO)
-                        .build();
+                                .id(ua.getId())
+                                .cedula(ua.getCedula())
+                                .nombresApellidos(ua.getNombresApellidos())
+                                .fotoUrl(ua.getFotoUrl())
+                                .activo(ua.getActivo())
+                                .permisos(ua.getPermisos())
+                                .especialidad(especialidadUsuario)
+                                .sede(ua.getSede() != null
+                                                ? new com.ucacue.udipsai.modules.sedes.dto.SedeDTO(ua.getSede().getId(),
+                                                                ua.getSede().getNombre())
+                                                : null)
+                                .build();
 
+                // Mapear Especialidad a DTO
                 Especialidad especialidadEntity = cita.getEspecialidad();
-                EspecialidadDTO especialidad = new EspecialidadDTO(especialidadEntity.getId(),
-                        especialidadEntity.getArea(), null);
+                EspecialidadDTO especialidad = new EspecialidadDTO(
+                                especialidadEntity.getId(),
+                                especialidadEntity.getArea(),
+                                null // Permisos null ya que venian de AreaDTO y aqui es simplificado o no disponible
+                );
 
-                return mapearDTO(cita, paciente, especialista, especialidad);
-            } else {
-                throw new EntityNotFoundException("Paciente no encontrado para cita " + cita.getIdCita());
-            }
-        });
+                CitaDTO dto = mapearDTO(cita, paciente, especialista, especialidad);
+                logger.info("200 OK: Cita obtenida correctamente");
 
-        logger.info("200 OK: Citas obtenidas correctamente");
-
-        return new ResponseEntity<>(dtos, HttpStatus.OK);
-    }
-
-    // Obtener una Cita por Id.
-    @Transactional(readOnly = true)
-    public ResponseEntity<?> obtenerCitaPorId(Long idCita, HttpServletRequest request) {
-        logger.info("obtenerCitaPorId()");
-        logger.info("Obteniendo cita con id {}", idCita);
-
-        CitaEntity cita = citaRepo.findById(idCita)
-                .orElseThrow(() -> new EntityNotFoundException("Cita con id " + idCita + " no encontrada"));
-
-        Paciente pacienteEncontrado = pacienteRepo.findById(cita.getFichaPaciente().intValue())
-                .orElseThrow(() -> new EntityNotFoundException(
-                        "Paciente con ficha " + cita.getFichaPaciente() + " asignado a la cita no fue encontrado"));
-
-        PacienteDTO paciente = pacienteService.convertirADTO(pacienteEncontrado);
-
-        com.ucacue.udipsai.modules.usuarios.domain.UsuarioAtencion ua = cita.getUsuarioAtencion();
-
-        EspecialidadDTO especialidadUsuario = new EspecialidadDTO(ua.getEspecialidad().getId(),
-                ua.getEspecialidad().getArea(), null);
-
-        EspecialistaDTO especialista = EspecialistaDTO.builder()
-                .id(ua.getId())
-                .cedula(ua.getCedula())
-                .nombresApellidos(ua.getNombresApellidos())
-                .fotoUrl(ua.getFotoUrl())
-                .activo(ua.getActivo())
-                .permisos(ua.getPermisos())
-                .especialidad(especialidadUsuario)
-                .sede(ua.getSede() != null
-                        ? new com.ucacue.udipsai.modules.sedes.dto.SedeDTO(ua.getSede().getId(),
-                                ua.getSede().getNombre())
-                        : null)
-                .build();
-
-        // Mapear Especialidad a DTO
-        Especialidad especialidadEntity = cita.getEspecialidad();
-        EspecialidadDTO especialidad = new EspecialidadDTO(
-                especialidadEntity.getId(),
-                especialidadEntity.getArea(),
-                null // Permisos null ya que venian de AreaDTO y aqui es simplificado o no disponible
-        );
-
-        CitaDTO dto = mapearDTO(cita, paciente, especialista, especialidad);
-        logger.info("200 OK: Cita obtenida correctamente");
-
-        return new ResponseEntity<>(dto, HttpStatus.OK);
-    }
-
-    // Registrar una Cita.
-    @Transactional
-    public ResponseEntity<?> registrarCita(RegistrarCitaDTO dto, HttpServletRequest request) {
-        logger.info("registrarCita()");
-        logger.info("Registrando una Cita");
-
-        if (dto.getFichaPaciente() == null || dto.getProfesionalId() == null || dto.getEspecialidadId() == null
-                || dto.getFecha() == null || dto.getHora() == null) {
-            throw new IllegalArgumentException("Faltan datos para el registro de la cita");
+                return new ResponseEntity<>(dto, HttpStatus.OK);
         }
 
-        Paciente pacienteEncontrado = pacienteRepo.findById(dto.getFichaPaciente().intValue())
-                .orElseThrow(() -> new EntityNotFoundException(
-                        "Paciente con ficha " + dto.getFichaPaciente() + " no encontrado para el registro de la cita"));
+        // Registrar una Cita.
+        @Transactional
+        public ResponseEntity<?> registrarCita(RegistrarCitaDTO dto, HttpServletRequest request) {
+                logger.info("registrarCita()");
+                logger.info("Registrando una Cita");
 
-        PacienteDTO paciente = pacienteService.convertirADTO(pacienteEncontrado);
-
-        com.ucacue.udipsai.modules.usuarios.domain.UsuarioAtencion profesional = usuarioAtencionRepo
-                .findById(dto.getProfesionalId().intValue())
-                .orElseThrow(() -> new EntityNotFoundException(
-                        "Profesional (UsuarioAtencion) con id " + dto.getProfesionalId()
-                                + " no encontrado para el registro de la cita"));
-
-        if (!profesional.getActivo()) {
-            throw new IllegalArgumentException("El profesional seleccionado no se encuentra activo.");
-        }
-
-        if (profesional instanceof com.ucacue.udipsai.modules.pasante.domain.Pasante) {
-            com.ucacue.udipsai.modules.pasante.domain.Pasante pasante = (com.ucacue.udipsai.modules.pasante.domain.Pasante) profesional;
-            if (pasante.getInicioPasantia() != null && pasante.getFinPasantia() != null) {
-                if (dto.getFecha().isBefore(pasante.getInicioPasantia())
-                        || dto.getFecha().isAfter(pasante.getFinPasantia())) {
-                    throw new IllegalArgumentException(
-                            "La fecha de la cita está fuera del periodo de pasantía del profesional seleccionado.");
+                if (dto.getFichaPaciente() == null || dto.getProfesionalId() == null || dto.getEspecialidadId() == null
+                                || dto.getFecha() == null || dto.getHora() == null) {
+                        throw new IllegalArgumentException("Faltan datos para el registro de la cita");
                 }
-            }
-        }
 
-        EspecialidadDTO especialidadUsuario = new EspecialidadDTO(profesional.getEspecialidad().getId(),
-                profesional.getEspecialidad().getArea(), null);
-        EspecialistaDTO especialistaDTO = EspecialistaDTO.builder()
-                .id(profesional.getId())
-                .cedula(profesional.getCedula())
-                .nombresApellidos(profesional.getNombresApellidos())
-                .fotoUrl(profesional.getFotoUrl())
-                .activo(profesional.getActivo())
-                .permisos(profesional.getPermisos())
-                .especialidad(especialidadUsuario)
-                .sede(profesional.getSede() != null
-                        ? new com.ucacue.udipsai.modules.sedes.dto.SedeDTO(profesional.getSede().getId(),
-                                profesional.getSede().getNombre())
-                        : null)
-                .build();
+                Paciente pacienteEncontrado = pacienteRepo.findById(dto.getFichaPaciente().intValue())
+                                .orElseThrow(() -> new EntityNotFoundException(
+                                                "Paciente con ficha " + dto.getFichaPaciente()
+                                                                + " no encontrado para el registro de la cita"));
 
-        Especialidad especialidadEntity = especialidadRepo.findById(dto.getEspecialidadId().intValue())
-                .orElseThrow(() -> new EntityNotFoundException(
-                        "Especialidad con id " + dto.getEspecialidadId() + " no encontrada"));
+                PacienteDTO paciente = pacienteService.convertirADTO(pacienteEncontrado);
 
-        EspecialidadDTO especialidad = new EspecialidadDTO(especialidadEntity.getId(), especialidadEntity.getArea(),
-                null);
+                com.ucacue.udipsai.modules.usuarios.domain.UsuarioAtencion profesional = usuarioAtencionRepo
+                                .findById(dto.getProfesionalId().intValue())
+                                .orElseThrow(() -> new EntityNotFoundException(
+                                                "Profesional (UsuarioAtencion) con id " + dto.getProfesionalId()
+                                                                + " no encontrado para el registro de la cita"));
 
-        if (citaRepo.existsByEstadoAndFechaAndHoraInicioAndFichaPaciente(CitaEntity.Estado.PENDIENTE, dto.getFecha(),
-                dto.getHora(),
-                dto.getFichaPaciente())) {
-            throw new IllegalArgumentException(
-                    "Paciente " + paciente.getNombresApellidos().trim()
-                            + " ya tiene una cita asignada en la fecha "
-                            + dto.getFecha().toString() + " y hora " + dto.getHora().toString());
-        }
-
-        if (citaRepo.existsByEstadoAndFechaAndHoraInicioAndUsuarioAtencion_Id(CitaEntity.Estado.PENDIENTE,
-                dto.getFecha(),
-                dto.getHora(),
-                profesional.getId())) {
-            throw new IllegalArgumentException("Profesional " + profesional.getNombresApellidos().trim().toUpperCase()
-                    + " ya tiene una cita asignada en la fecha "
-                    + dto.getFecha().toString() + " y hora " + dto.getHora().toString());
-        }
-
-        // Validacion de Overlap (Solapamiento)
-        int duration = (dto.getDuracionMinutes() != null && dto.getDuracionMinutes() > 0)
-                ? dto.getDuracionMinutes()
-                : 60;
-        LocalTime newStart = dto.getHora();
-        LocalTime newEnd = newStart.plusMinutes(duration);
-
-        // Obtener todas las citas del profesional esa fecha para validar solapamiento
-        // real
-        List<CitaEntity> citasDia = citaRepo.findCitasOcupadasByProfesionalAndFecha(profesional.getId(),
-                dto.getFecha());
-
-        for (CitaEntity existing : citasDia) {
-            LocalTime existingStart = existing.getHoraInicio();
-            LocalTime existingEnd = existing.getHoraFin();
-
-            if (newStart.isBefore(existingEnd) && newEnd.isAfter(existingStart)) {
-                throw new IllegalArgumentException(
-                        "Profesional " + profesional.getNombresApellidos().trim().toUpperCase()
-                                + " ya tiene una cita ocupada en el rango " + existingStart + " - " + existingEnd
-                                + " que conflicto con el nuevo horario " + newStart + " - " + newEnd);
-            }
-        }
-
-        CitaEntity cita = new CitaEntity();
-        cita.setFecha(dto.getFecha());
-        cita.setHoraInicio(dto.getHora());
-        cita.setHoraFin(newEnd);
-
-        cita.setEstado(CitaEntity.Estado.PENDIENTE);
-        cita.setFichaPaciente(dto.getFichaPaciente());
-        cita.setUsuarioAtencion(profesional);
-        cita.setEspecialidad(especialidadEntity);
-
-        CitaEntity citaGuardada = citaRepo.save(cita);
-        CitaDTO citaDto = mapearDTO(citaGuardada, paciente, especialistaDTO, especialidad);
-        logger.info("201 Created: Cita registrada correctamente");
-
-        return new ResponseEntity<>(citaDto, HttpStatus.CREATED);
-    }
-
-    // Reagendar una Cita.
-    @Transactional
-    public ResponseEntity<?> reagendarCita(Long idCita, RegistrarCitaDTO dto, HttpServletRequest request) {
-        logger.info("reagendarCita()");
-        logger.info("Reagendando una Cita");
-
-        CitaEntity citaEncontrada = citaRepo.findById(idCita)
-                .orElseThrow(() -> new EntityNotFoundException("Cita no encontrada"));
-
-        if (citaEncontrada.getEstado() != CitaEntity.Estado.PENDIENTE
-                && citaEncontrada.getEstado() != CitaEntity.Estado.FALTA_INJUSTIFICADA) {
-            throw new IllegalArgumentException(
-                    "La cita no se puede reagendar porque se encuentra finalizada o fue cancelada");
-        }
-
-        if (dto.getFichaPaciente() == null || dto.getProfesionalId() == null || dto.getEspecialidadId() == null
-                || dto.getFecha() == null || dto.getHora() == null) {
-            throw new IllegalArgumentException("Faltan datos para el reagendamiento de la cita");
-        }
-
-        Paciente pacienteEncontrado = pacienteRepo.findById(dto.getFichaPaciente().intValue())
-                .orElseThrow(() -> new EntityNotFoundException(
-                        "Paciente con ficha " + dto.getFichaPaciente()
-                                + " no encontrado para el reagendamiento de la cita"));
-        PacienteDTO paciente = pacienteService.convertirADTO(pacienteEncontrado);
-
-        com.ucacue.udipsai.modules.usuarios.domain.UsuarioAtencion profesional = usuarioAtencionRepo
-                .findById(dto.getProfesionalId().intValue())
-                .orElseThrow(() -> new EntityNotFoundException(
-                        "Profesional con id " + dto.getProfesionalId()
-                                + " no encontrado para el reagendamiento de la cita"));
-
-        if (!profesional.getActivo()) {
-            throw new IllegalArgumentException("El profesional seleccionado no se encuentra activo.");
-        }
-
-        if (profesional instanceof com.ucacue.udipsai.modules.pasante.domain.Pasante) {
-            com.ucacue.udipsai.modules.pasante.domain.Pasante pasante = (com.ucacue.udipsai.modules.pasante.domain.Pasante) profesional;
-            if (pasante.getInicioPasantia() != null && pasante.getFinPasantia() != null) {
-                if (dto.getFecha().isBefore(pasante.getInicioPasantia())
-                        || dto.getFecha().isAfter(pasante.getFinPasantia())) {
-                    throw new IllegalArgumentException(
-                            "La fecha de la cita está fuera del periodo de pasantía del profesional seleccionado.");
+                if (!profesional.getActivo()) {
+                        throw new IllegalArgumentException("El profesional seleccionado no se encuentra activo.");
                 }
-            }
-        }
 
-        Especialidad especialidadEntity = especialidadRepo.findById(dto.getEspecialidadId().intValue())
-                .orElseThrow(() -> new EntityNotFoundException(
-                        "Especialidad con id " + dto.getEspecialidadId() + " no encontrada"));
+                if (profesional instanceof com.ucacue.udipsai.modules.pasante.domain.Pasante) {
+                        com.ucacue.udipsai.modules.pasante.domain.Pasante pasante = (com.ucacue.udipsai.modules.pasante.domain.Pasante) profesional;
+                        if (pasante.getInicioPasantia() != null && pasante.getFinPasantia() != null) {
+                                if (dto.getFecha().isBefore(pasante.getInicioPasantia())
+                                                || dto.getFecha().isAfter(pasante.getFinPasantia())) {
+                                        throw new IllegalArgumentException(
+                                                        "La fecha de la cita está fuera del periodo de pasantía del profesional seleccionado.");
+                                }
+                        }
+                }
 
-        EspecialidadDTO especialidad = new EspecialidadDTO(especialidadEntity.getId(), especialidadEntity.getArea(),
-                null);
+                EspecialidadDTO especialidadUsuario = new EspecialidadDTO(profesional.getEspecialidad().getId(),
+                                profesional.getEspecialidad().getArea(), null);
+                EspecialistaDTO especialistaDTO = EspecialistaDTO.builder()
+                                .id(profesional.getId())
+                                .cedula(profesional.getCedula())
+                                .nombresApellidos(profesional.getNombresApellidos())
+                                .fotoUrl(profesional.getFotoUrl())
+                                .activo(profesional.getActivo())
+                                .permisos(profesional.getPermisos())
+                                .especialidad(especialidadUsuario)
+                                .sede(profesional.getSede() != null
+                                                ? new com.ucacue.udipsai.modules.sedes.dto.SedeDTO(
+                                                                profesional.getSede().getId(),
+                                                                profesional.getSede().getNombre())
+                                                : null)
+                                .build();
 
-        EspecialidadDTO especialidadUsuario = new EspecialidadDTO(profesional.getEspecialidad().getId(),
-                profesional.getEspecialidad().getArea(), null);
+                Especialidad especialidadEntity = especialidadRepo.findById(dto.getEspecialidadId().intValue())
+                                .orElseThrow(() -> new EntityNotFoundException(
+                                                "Especialidad con id " + dto.getEspecialidadId() + " no encontrada"));
 
-        EspecialistaDTO especialistaDTO = EspecialistaDTO.builder()
-                .id(profesional.getId())
-                .cedula(profesional.getCedula())
-                .nombresApellidos(profesional.getNombresApellidos())
-                .fotoUrl(profesional.getFotoUrl())
-                .activo(profesional.getActivo())
-                .permisos(profesional.getPermisos())
-                .especialidad(especialidadUsuario)
-                .sede(profesional.getSede() != null
-                        ? new com.ucacue.udipsai.modules.sedes.dto.SedeDTO(profesional.getSede().getId(),
-                                profesional.getSede().getNombre())
-                        : null)
-                .build();
-
-        if (citaRepo.existsByEstadoAndFechaAndHoraInicioAndFichaPaciente(CitaEntity.Estado.PENDIENTE, dto.getFecha(),
-                dto.getHora(),
-                dto.getFichaPaciente())) {
-            throw new IllegalArgumentException(
-                    "Paciente " + paciente.getNombresApellidos().trim()
-                            + " ya tiene una cita asignada en la fecha "
-                            + dto.getFecha().toString() + " y hora " + dto.getHora().toString());
-        }
-
-        if (citaRepo.existsByEstadoAndFechaAndHoraInicioAndUsuarioAtencion_Id(CitaEntity.Estado.PENDIENTE,
-                dto.getFecha(),
-                dto.getHora(),
-                dto.getProfesionalId().intValue())) {
-            throw new IllegalArgumentException("Profesional " + profesional.getNombresApellidos().trim().toUpperCase()
-                    + " ya tiene una cita asignada en la fecha "
-                    + dto.getFecha().toString() + " y hora " + dto.getHora().toString());
-        }
-
-        citaEncontrada.setFecha(dto.getFecha());
-        citaEncontrada.setHoraInicio(dto.getHora());
-
-        // Use provided duration or default to 60 minutes
-        int duration = (dto.getDuracionMinutes() != null && dto.getDuracionMinutes() > 0) ? dto.getDuracionMinutes()
-                : 60;
-        citaEncontrada.setHoraFin(dto.getHora().plusMinutes(duration));
-
-        citaEncontrada.setEstado(CitaEntity.Estado.PENDIENTE);
-        // Tambien deberiamos actualizar los otros campos si cambiaron
-        citaEncontrada.setUsuarioAtencion(profesional);
-        citaEncontrada.setEspecialidad(especialidadEntity);
-
-        CitaEntity citaGuardada = citaRepo.save(citaEncontrada);
-        CitaDTO citaDto = mapearDTO(citaGuardada, paciente, especialistaDTO, especialidad);
-        logger.info("200 OK: Cita reagendada correctamente");
-
-        return new ResponseEntity<>(citaDto, HttpStatus.OK);
-    }
-
-    // Obtener todas las Citas por estado.
-    @Transactional(readOnly = true)
-    public ResponseEntity<Page<CitaDTO>> obtenerCitasPorEstado(CitaEntity.Estado estado, Pageable pageable,
-            HttpServletRequest request) {
-        logger.info("obtenerCitasPorEstado()");
-        logger.info("Obteniendo todas las Citas con estado {}", estado.toString());
-
-        Page<CitaEntity> citas = citaRepo.findAllByEstado(estado, pageable);
-
-        if (citas.isEmpty()) {
-            throw new EntityNotFoundException("No existen citas con estado " + estado.toString());
-        }
-
-        Page<CitaDTO> dtos = citas.map(cita -> {
-            Optional<Paciente> pacienteOpt = pacienteRepo.findById(cita.getFichaPaciente().intValue());
-            if (pacienteOpt.isPresent()) {
-                PacienteDTO paciente = pacienteService.convertirADTO(pacienteOpt.get());
-
-                com.ucacue.udipsai.modules.usuarios.domain.UsuarioAtencion ua = cita.getUsuarioAtencion();
-                EspecialistaDTO especialista = EspecialistaDTO.builder()
-                        .id(ua.getId())
-                        .cedula(ua.getCedula())
-                        .nombresApellidos(ua.getNombresApellidos())
-                        .fotoUrl(ua.getFotoUrl())
-                        .activo(ua.getActivo())
-                        .permisos(ua.getPermisos())
-                        .especialidad(
-                                new EspecialidadDTO(ua.getEspecialidad().getId(), ua.getEspecialidad().getArea(), null))
-                        .sede(ua.getSede() != null
-                                ? new com.ucacue.udipsai.modules.sedes.dto.SedeDTO(ua.getSede().getId(),
-                                        ua.getSede().getNombre())
-                                : null)
-                        .build();
-
-                Especialidad especialidadEntity = cita.getEspecialidad();
                 EspecialidadDTO especialidad = new EspecialidadDTO(especialidadEntity.getId(),
-                        especialidadEntity.getArea(), null);
+                                especialidadEntity.getArea(),
+                                null);
 
-                return mapearDTO(cita, paciente, especialista, especialidad);
-            } else {
-                throw new EntityNotFoundException("Paciente no encontrado");
-            }
-        });
-        logger.info("200 OK: Citas con estado {} obtenidas correctamente", estado.toString());
+                if (citaRepo.existsByEstadoAndFechaAndHoraInicioAndFichaPaciente(CitaEntity.Estado.PENDIENTE,
+                                dto.getFecha(),
+                                dto.getHora(),
+                                dto.getFichaPaciente())) {
+                        throw new IllegalArgumentException(
+                                        "Paciente " + paciente.getNombresApellidos().trim()
+                                                        + " ya tiene una cita asignada en la fecha "
+                                                        + dto.getFecha().toString() + " y hora "
+                                                        + dto.getHora().toString());
+                }
 
-        return new ResponseEntity<>(dtos, HttpStatus.OK);
-    }
+                if (citaRepo.existsByEstadoAndFechaAndHoraInicioAndUsuarioAtencion_Id(CitaEntity.Estado.PENDIENTE,
+                                dto.getFecha(),
+                                dto.getHora(),
+                                profesional.getId())) {
+                        throw new IllegalArgumentException("Profesional "
+                                        + profesional.getNombresApellidos().trim().toUpperCase()
+                                        + " ya tiene una cita asignada en la fecha "
+                                        + dto.getFecha().toString() + " y hora " + dto.getHora().toString());
+                }
 
-    // Obtener Citas por filtros.
-    @Transactional(readOnly = true)
-    public ResponseEntity<Page<CitaEntity>> obtenerCitasPorFiltros(Long idCita, Long fichaPaciente, LocalDate fecha,
-            Pageable pageable,
-            HttpServletRequest request) {
-        logger.info("obtenerCitasPorFiltro()");
-        logger.info("Obteniendo citas por filtro");
+                // Validacion de Overlap (Solapamiento)
+                int duration = (dto.getDuracionMinutes() != null && dto.getDuracionMinutes() > 0)
+                                ? dto.getDuracionMinutes()
+                                : 60;
+                LocalTime newStart = dto.getHora();
+                LocalTime newEnd = newStart.plusMinutes(duration);
 
-        Page<CitaEntity> citas = Page.empty();
+                // Obtener todas las citas del profesional esa fecha para validar solapamiento
+                // real
+                List<CitaEntity> citasDia = citaRepo.findCitasOcupadasByProfesionalAndFecha(profesional.getId(),
+                                dto.getFecha());
 
-        if (fecha != null && idCita == null && fichaPaciente == null) {
-            citas = citaRepo.findAllByFecha(fecha, pageable);
-        } else {
-            citas = citaRepo.findCitasByFilter(idCita, fichaPaciente, pageable);
+                for (CitaEntity existing : citasDia) {
+                        LocalTime existingStart = existing.getHoraInicio();
+                        LocalTime existingEnd = existing.getHoraFin();
+
+                        if (newStart.isBefore(existingEnd) && newEnd.isAfter(existingStart)) {
+                                throw new IllegalArgumentException(
+                                                "Profesional " + profesional.getNombresApellidos().trim().toUpperCase()
+                                                                + " ya tiene una cita ocupada en el rango "
+                                                                + existingStart + " - " + existingEnd
+                                                                + " que conflicto con el nuevo horario " + newStart
+                                                                + " - " + newEnd);
+                        }
+                }
+
+                CitaEntity cita = new CitaEntity();
+                cita.setFecha(dto.getFecha());
+                cita.setHoraInicio(dto.getHora());
+                cita.setHoraFin(newEnd);
+
+                cita.setEstado(CitaEntity.Estado.PENDIENTE);
+                cita.setFichaPaciente(dto.getFichaPaciente());
+                cita.setUsuarioAtencion(profesional);
+                cita.setEspecialidad(especialidadEntity);
+
+                CitaEntity citaGuardada = citaRepo.save(cita);
+                CitaDTO citaDto = mapearDTO(citaGuardada, paciente, especialistaDTO, especialidad);
+                logger.info("201 Created: Cita registrada correctamente");
+
+                return new ResponseEntity<>(citaDto, HttpStatus.CREATED);
         }
 
-        if (citas.isEmpty()) {
-            return new ResponseEntity<>(Page.empty(), HttpStatus.OK);
-        }
+        // Reagendar una Cita.
+        @Transactional
+        public ResponseEntity<?> reagendarCita(Long idCita, RegistrarCitaDTO dto, HttpServletRequest request) {
+                logger.info("reagendarCita()");
+                logger.info("Reagendando una Cita");
 
-        logger.info("200 OK: Citas obtenidas por filtro correctamente");
+                CitaEntity citaEncontrada = citaRepo.findById(idCita)
+                                .orElseThrow(() -> new EntityNotFoundException("Cita no encontrada"));
 
-        return new ResponseEntity<>(citas, HttpStatus.OK);
-    }
+                if (citaEncontrada.getEstado() != CitaEntity.Estado.PENDIENTE
+                                && citaEncontrada.getEstado() != CitaEntity.Estado.FALTA_INJUSTIFICADA) {
+                        throw new IllegalArgumentException(
+                                        "La cita no se puede reagendar porque se encuentra finalizada o fue cancelada");
+                }
 
-    // Encontrar horas libres de un Profesional en una fecha especifica.
-    @Transactional(readOnly = true)
-    public ResponseEntity<List<String>> encontrarHorasLibresProfesional(Long profesionalId, LocalDate fecha,
-            HttpServletRequest request) {
-        logger.info("encontrarHorasLibresProfesional()");
-        logger.info("Encontrando horas libres de Profesional con id {} en una fecha especifica {}", profesionalId,
-                fecha.toString());
+                if (dto.getFichaPaciente() == null || dto.getProfesionalId() == null || dto.getEspecialidadId() == null
+                                || dto.getFecha() == null || dto.getHora() == null) {
+                        throw new IllegalArgumentException("Faltan datos para el reagendamiento de la cita");
+                }
 
-        com.ucacue.udipsai.modules.usuarios.domain.UsuarioAtencion especialista = usuarioAtencionRepo
-                .findById(profesionalId.intValue())
-                .orElseThrow(
-                        () -> new EntityNotFoundException("Profesional con id " + profesionalId + " no encontrado"));
+                Paciente pacienteEncontrado = pacienteRepo.findById(dto.getFichaPaciente().intValue())
+                                .orElseThrow(() -> new EntityNotFoundException(
+                                                "Paciente con ficha " + dto.getFichaPaciente()
+                                                                + " no encontrado para el reagendamiento de la cita"));
+                PacienteDTO paciente = pacienteService.convertirADTO(pacienteEncontrado);
 
-        List<CitaEntity> citasOcupadas = citaRepo.findCitasOcupadasByProfesionalAndFecha(profesionalId.intValue(),
-                fecha);
-        List<LocalTime> horasOcupadas = new ArrayList<>();
+                com.ucacue.udipsai.modules.usuarios.domain.UsuarioAtencion profesional = usuarioAtencionRepo
+                                .findById(dto.getProfesionalId().intValue())
+                                .orElseThrow(() -> new EntityNotFoundException(
+                                                "Profesional con id " + dto.getProfesionalId()
+                                                                + " no encontrado para el reagendamiento de la cita"));
 
-        for (CitaEntity cita : citasOcupadas) {
-            LocalTime start = cita.getHoraInicio();
-            LocalTime end = cita.getHoraFin();
-            while (start.isBefore(end)) {
-                horasOcupadas.add(start);
-                start = start.plusHours(1);
-            }
-        }
+                if (!profesional.getActivo()) {
+                        throw new IllegalArgumentException("El profesional seleccionado no se encuentra activo.");
+                }
 
-        List<String> horasLibres = new ArrayList<>();
+                if (profesional instanceof com.ucacue.udipsai.modules.pasante.domain.Pasante) {
+                        com.ucacue.udipsai.modules.pasante.domain.Pasante pasante = (com.ucacue.udipsai.modules.pasante.domain.Pasante) profesional;
+                        if (pasante.getInicioPasantia() != null && pasante.getFinPasantia() != null) {
+                                if (dto.getFecha().isBefore(pasante.getInicioPasantia())
+                                                || dto.getFecha().isAfter(pasante.getFinPasantia())) {
+                                        throw new IllegalArgumentException(
+                                                        "La fecha de la cita está fuera del periodo de pasantía del profesional seleccionado.");
+                                }
+                        }
+                }
 
-        LocalTime horaInicio = LocalTime.of(8, 0);
-        LocalTime horaReceso = LocalTime.of(12, 0);
-        LocalTime horaFin = LocalTime.of(17, 0);
+                Especialidad especialidadEntity = especialidadRepo.findById(dto.getEspecialidadId().intValue())
+                                .orElseThrow(() -> new EntityNotFoundException(
+                                                "Especialidad con id " + dto.getEspecialidadId() + " no encontrada"));
 
-        while (horaInicio.isBefore(horaFin)) {
-            if (!horasOcupadas.contains(horaInicio) && !horaInicio.equals(horaReceso)) {
-                horasLibres.add(horaInicio.format(DateTimeFormatter.ofPattern("HH:mm")));
-            }
-            // Asumiendo citas de 1 hora de duraciÃ³n.
-            horaInicio = horaInicio.plusHours(1);
-        }
-        logger.info("200 OK: Horas libres encontradas correctamente");
-        return new ResponseEntity<>(horasLibres, HttpStatus.OK);
-    }
-
-    // Finalizar una Cita.
-    @Transactional
-    public ResponseEntity<?> finalizarCita(Long idCita) {
-        logger.info("finalizarCita()");
-        logger.info("Finalizando una Cita");
-
-        CitaEntity cita = citaRepo.findById(idCita)
-                .orElseThrow(() -> new EntityNotFoundException("Cita con id " + idCita + " no encontrada"));
-
-        if (cita.getEstado() != CitaEntity.Estado.PENDIENTE
-                && cita.getEstado() != CitaEntity.Estado.FALTA_INJUSTIFICADA) {
-            logger.error("Error al marcar FINALIZADA. Estado actual: " + cita.getEstado());
-            throw new IllegalArgumentException(
-                    "La cita no se puede finalizar porque anteriormente ya ha finalizado o ya fue cancelada. Estado actual: "
-                            + cita.getEstado());
-        }
-
-        cita.setEstado(CitaEntity.Estado.FINALIZADA);
-        citaRepo.save(cita);
-        logger.info("200 OK: Cita marcada como FINALIZADA correctamente");
-        CitaResponse citaResponse = new CitaResponse("Cita marcada como FINALIZADA correctamente");
-        return ResponseEntity.ok().body(citaResponse);
-
-    }
-
-    // Cancelar una Cita.
-    @Transactional
-    public ResponseEntity<?> cancelarCita(Long idCita) {
-        logger.info("cancelarCita()");
-        logger.info("Cancelando una Cita");
-
-        CitaEntity cita = citaRepo.findById(idCita)
-                .orElseThrow(() -> new EntityNotFoundException("Cita con id " + idCita + " no encontrada"));
-
-        if (cita.getEstado() != CitaEntity.Estado.PENDIENTE) {
-            throw new IllegalArgumentException(
-                    "La cita no se puede cancelar porque ya ha finalizado o ya fue cancelada");
-        }
-
-        cita.setEstado(CitaEntity.Estado.CANCELADA);
-        citaRepo.save(cita);
-        CitaResponse response = new CitaResponse("Cita cancelada correctamente");
-
-        return ResponseEntity.ok().body(response);
-    }
-
-    // Cambiar estado de cita a Falta Justificada.
-    @Transactional
-    public ResponseEntity<?> faltaJustificada(Long idCita) {
-        return faltaInjustificada(idCita);
-    }
-
-    // Cambiar estado de cita a Falta Injustificada.
-    @Transactional
-    public ResponseEntity<?> faltaInjustificada(Long idCita) {
-        logger.info("faltaInjustificada()");
-        logger.info("Cambiando estado de cita a Falta Injustificada");
-
-        CitaEntity cita = citaRepo.findById(idCita)
-                .orElseThrow(() -> new EntityNotFoundException("Cita con id " + idCita + " no encontrada"));
-
-        if (cita.getEstado() != CitaEntity.Estado.PENDIENTE && cita.getEstado() != CitaEntity.Estado.FINALIZADA) {
-            logger.error("Error al marcar NO ASISTIDO. Estado actual: " + cita.getEstado());
-            throw new IllegalArgumentException(
-                    "La cita no se puede asignar como NO ASISTIDO porque ya ha finalizado o ya fue cancelada. Estado actual: "
-                            + cita.getEstado());
-        }
-
-        cita.setEstado(CitaEntity.Estado.FALTA_INJUSTIFICADA);
-        citaRepo.save(cita);
-        CitaResponse response = new CitaResponse("Cita asignada como NO ASISTIDO correctamente");
-
-        return ResponseEntity.ok().body(response);
-    }
-
-    static class CitaResponse {
-        private String message;
-
-        public CitaResponse(String message) {
-            this.message = message;
-        }
-
-        public String getMessage() {
-            return message;
-        }
-
-        public void setMessage(String message) {
-            this.message = message;
-        }
-    }
-
-    // obtener citas filtro unico
-    @Transactional(readOnly = true)
-    public ResponseEntity<Page<CitaEntity>> obtenerCitasFiltro(String filtro, Pageable pageable) {
-        logger.info("obtenerCitasFiltro()");
-        logger.info("Obteniendo citas por filtro");
-
-        Page<CitaEntity> citas = citaRepo.findCitasFiltro(filtro, pageable);
-
-        logger.info("200 OK: Citas obtenidas por filtro correctamente");
-
-        return new ResponseEntity<>(citas, HttpStatus.OK);
-    }
-
-    // Obtener citas por Profesional
-    @Transactional(readOnly = true)
-    public ResponseEntity<Page<CitaDTO>> obtenerCitasPorProfesional(Long idProfesional, Pageable pageable) {
-        logger.info("obtenerCitasPorProfesional()");
-        logger.info("Obteniendo citas por Profesional");
-
-        Page<CitaEntity> citas = citaRepo.findAllByUsuarioAtencion_Id(idProfesional.intValue(), pageable);
-
-        if (citas.isEmpty()) {
-            Page<CitaDTO> emptyPage = Page.empty(pageable);
-            return new ResponseEntity<>(emptyPage, HttpStatus.OK);
-        }
-
-        Page<CitaDTO> dtos = citas.map(cita -> {
-            Optional<Paciente> pacienteOpt = pacienteRepo.findById(cita.getFichaPaciente().intValue());
-            if (pacienteOpt.isPresent()) {
-                PacienteDTO paciente = pacienteService.convertirADTO(pacienteOpt.get());
-                com.ucacue.udipsai.modules.usuarios.domain.UsuarioAtencion ua = cita.getUsuarioAtencion();
-                EspecialistaDTO especialista = EspecialistaDTO.builder()
-                        .id(ua.getId())
-                        .cedula(ua.getCedula())
-                        .nombresApellidos(ua.getNombresApellidos())
-                        .fotoUrl(ua.getFotoUrl())
-                        .activo(ua.getActivo())
-                        .permisos(ua.getPermisos())
-                        .especialidad(
-                                new EspecialidadDTO(ua.getEspecialidad().getId(), ua.getEspecialidad().getArea(), null))
-                        .sede(ua.getSede() != null
-                                ? new com.ucacue.udipsai.modules.sedes.dto.SedeDTO(ua.getSede().getId(),
-                                        ua.getSede().getNombre())
-                                : null)
-                        .build();
-
-                Especialidad especialidadEntity = cita.getEspecialidad();
                 EspecialidadDTO especialidad = new EspecialidadDTO(especialidadEntity.getId(),
-                        especialidadEntity.getArea(), null);
+                                especialidadEntity.getArea(),
+                                null);
 
-                return mapearDTO(cita, paciente, especialista, especialidad);
-            } else {
-                throw new EntityNotFoundException("Paciente no encontrado para cita " + cita.getIdCita());
-            }
-        });
+                EspecialidadDTO especialidadUsuario = new EspecialidadDTO(profesional.getEspecialidad().getId(),
+                                profesional.getEspecialidad().getArea(), null);
 
-        logger.info("200 OK: Citas obtenidas por Profesional correctamente");
+                EspecialistaDTO especialistaDTO = EspecialistaDTO.builder()
+                                .id(profesional.getId())
+                                .cedula(profesional.getCedula())
+                                .nombresApellidos(profesional.getNombresApellidos())
+                                .fotoUrl(profesional.getFotoUrl())
+                                .activo(profesional.getActivo())
+                                .permisos(profesional.getPermisos())
+                                .especialidad(especialidadUsuario)
+                                .sede(profesional.getSede() != null
+                                                ? new com.ucacue.udipsai.modules.sedes.dto.SedeDTO(
+                                                                profesional.getSede().getId(),
+                                                                profesional.getSede().getNombre())
+                                                : null)
+                                .build();
 
-        return new ResponseEntity<>(dtos, HttpStatus.OK);
-    }
+                if (citaRepo.existsByEstadoAndFechaAndHoraInicioAndFichaPaciente(CitaEntity.Estado.PENDIENTE,
+                                dto.getFecha(),
+                                dto.getHora(),
+                                dto.getFichaPaciente())) {
+                        throw new IllegalArgumentException(
+                                        "Paciente " + paciente.getNombresApellidos().trim()
+                                                        + " ya tiene una cita asignada en la fecha "
+                                                        + dto.getFecha().toString() + " y hora "
+                                                        + dto.getHora().toString());
+                }
 
-    // Obtener citas por Especialidad (antes Area)
-    @Transactional(readOnly = true)
-    public ResponseEntity<Page<CitaDTO>> obtenerCitasPorEspecialidad(Integer idEspecialidad, Pageable pageable) {
-        logger.info("obtenerCitasPorEspecialidad()");
-        logger.info("Obteniendo citas por Especialidad");
+                if (citaRepo.existsByEstadoAndFechaAndHoraInicioAndUsuarioAtencion_Id(CitaEntity.Estado.PENDIENTE,
+                                dto.getFecha(),
+                                dto.getHora(),
+                                dto.getProfesionalId().intValue())) {
+                        throw new IllegalArgumentException("Profesional "
+                                        + profesional.getNombresApellidos().trim().toUpperCase()
+                                        + " ya tiene una cita asignada en la fecha "
+                                        + dto.getFecha().toString() + " y hora " + dto.getHora().toString());
+                }
 
-        Page<CitaEntity> citas = citaRepo.findAllByEspecialidad_Id(idEspecialidad, pageable);
+                citaEncontrada.setFecha(dto.getFecha());
+                citaEncontrada.setHoraInicio(dto.getHora());
 
-        if (citas.isEmpty()) {
-            Page<CitaDTO> emptyPage = Page.empty(pageable);
-            return new ResponseEntity<>(emptyPage, HttpStatus.OK);
+                // Use provided duration or default to 60 minutes
+                int duration = (dto.getDuracionMinutes() != null && dto.getDuracionMinutes() > 0)
+                                ? dto.getDuracionMinutes()
+                                : 60;
+                citaEncontrada.setHoraFin(dto.getHora().plusMinutes(duration));
+
+                citaEncontrada.setEstado(CitaEntity.Estado.PENDIENTE);
+                // Tambien deberiamos actualizar los otros campos si cambiaron
+                citaEncontrada.setUsuarioAtencion(profesional);
+                citaEncontrada.setEspecialidad(especialidadEntity);
+
+                CitaEntity citaGuardada = citaRepo.save(citaEncontrada);
+                CitaDTO citaDto = mapearDTO(citaGuardada, paciente, especialistaDTO, especialidad);
+                logger.info("200 OK: Cita reagendada correctamente");
+
+                return new ResponseEntity<>(citaDto, HttpStatus.OK);
         }
 
-        Page<CitaDTO> dtos = citas.map(cita -> {
-            Optional<Paciente> pacienteOpt = pacienteRepo.findById(cita.getFichaPaciente().intValue());
-            if (pacienteOpt.isPresent()) {
-                PacienteDTO paciente = pacienteService.convertirADTO(pacienteOpt.get());
+        // Obtener todas las Citas por estado.
+        @Transactional(readOnly = true)
+        public ResponseEntity<Page<CitaDTO>> obtenerCitasPorEstado(CitaEntity.Estado estado, Pageable pageable,
+                        HttpServletRequest request) {
+                logger.info("obtenerCitasPorEstado()");
+                logger.info("Obteniendo todas las Citas con estado {}", estado.toString());
 
-                com.ucacue.udipsai.modules.usuarios.domain.UsuarioAtencion ua = cita.getUsuarioAtencion();
-                EspecialistaDTO especialista = EspecialistaDTO.builder()
-                        .id(ua.getId())
-                        .cedula(ua.getCedula())
-                        .nombresApellidos(ua.getNombresApellidos())
-                        .fotoUrl(ua.getFotoUrl())
-                        .activo(ua.getActivo())
-                        .permisos(ua.getPermisos())
-                        .especialidad(
-                                new EspecialidadDTO(ua.getEspecialidad().getId(), ua.getEspecialidad().getArea(), null))
-                        .sede(ua.getSede() != null
-                                ? new com.ucacue.udipsai.modules.sedes.dto.SedeDTO(ua.getSede().getId(),
-                                        ua.getSede().getNombre())
-                                : null)
-                        .build();
+                Page<CitaEntity> citas = citaRepo.findAllByEstado(estado, pageable);
 
-                Especialidad especialidadEntity = cita.getEspecialidad();
-                EspecialidadDTO especialidad = new EspecialidadDTO(especialidadEntity.getId(),
-                        especialidadEntity.getArea(), null);
+                if (citas.isEmpty()) {
+                        throw new EntityNotFoundException("No existen citas con estado " + estado.toString());
+                }
 
-                return mapearDTO(cita, paciente, especialista, especialidad);
-            } else {
-                logger.warn("Paciente no encontrado para cita " + cita.getIdCita());
-                return null;
-            }
-        });
+                Page<CitaDTO> dtos = citas.map(cita -> {
+                        Optional<Paciente> pacienteOpt = pacienteRepo.findById(cita.getFichaPaciente().intValue());
+                        if (pacienteOpt.isPresent()) {
+                                PacienteDTO paciente = pacienteService.convertirADTO(pacienteOpt.get());
 
-        logger.info("200 OK: Citas obtenidas por Especialidad correctamente");
+                                com.ucacue.udipsai.modules.usuarios.domain.UsuarioAtencion ua = cita
+                                                .getUsuarioAtencion();
+                                EspecialistaDTO especialista = EspecialistaDTO.builder()
+                                                .id(ua.getId())
+                                                .cedula(ua.getCedula())
+                                                .nombresApellidos(ua.getNombresApellidos())
+                                                .fotoUrl(ua.getFotoUrl())
+                                                .activo(ua.getActivo())
+                                                .permisos(ua.getPermisos())
+                                                .especialidad(
+                                                                new EspecialidadDTO(ua.getEspecialidad().getId(),
+                                                                                ua.getEspecialidad().getArea(), null))
+                                                .sede(ua.getSede() != null
+                                                                ? new com.ucacue.udipsai.modules.sedes.dto.SedeDTO(
+                                                                                ua.getSede().getId(),
+                                                                                ua.getSede().getNombre())
+                                                                : null)
+                                                .build();
 
-        return new ResponseEntity<>(dtos, HttpStatus.OK);
-    }
+                                Especialidad especialidadEntity = cita.getEspecialidad();
+                                EspecialidadDTO especialidad = new EspecialidadDTO(especialidadEntity.getId(),
+                                                especialidadEntity.getArea(), null);
 
-    // Obtener citas por una lista de especialidades
-    @Transactional(readOnly = true)
-    public ResponseEntity<Page<CitaEntity>> obtenerCitasPorEspecialidades(List<Integer> especialidades,
-            Pageable pageable) {
-        logger.info("obtenerCitasPorEspecialidades()");
-        logger.info("Obteniendo citas por especialidades");
+                                return mapearDTO(cita, paciente, especialista, especialidad);
+                        } else {
+                                throw new EntityNotFoundException("Paciente no encontrado");
+                        }
+                });
+                logger.info("200 OK: Citas con estado {} obtenidas correctamente", estado.toString());
 
-        List<CitaEntity> allCitas = new ArrayList<>();
-
-        for (Integer espId : especialidades) {
-            Page<CitaEntity> citasEsp = citaRepo.findAllByEspecialidad_Id(espId, pageable);
-            allCitas.addAll(citasEsp.getContent());
+                return new ResponseEntity<>(dtos, HttpStatus.OK);
         }
 
-        if (allCitas.isEmpty()) {
-            logger.info("No se encontraron citas para las especialidades proporcionadas");
-            return new ResponseEntity<>(Page.empty(pageable), HttpStatus.OK);
+        // Obtener Citas por filtros.
+        @Transactional(readOnly = true)
+        public ResponseEntity<Page<CitaEntity>> obtenerCitasPorFiltros(Long idCita, Long fichaPaciente, LocalDate fecha,
+                        Pageable pageable,
+                        HttpServletRequest request) {
+                logger.info("obtenerCitasPorFiltro()");
+                logger.info("Obteniendo citas por filtro");
+
+                Page<CitaEntity> citas = Page.empty();
+
+                if (fecha != null && idCita == null && fichaPaciente == null) {
+                        citas = citaRepo.findAllByFecha(fecha, pageable);
+                } else {
+                        citas = citaRepo.findCitasByFilter(idCita, fichaPaciente, pageable);
+                }
+
+                if (citas.isEmpty()) {
+                        return new ResponseEntity<>(Page.empty(), HttpStatus.OK);
+                }
+
+                logger.info("200 OK: Citas obtenidas por filtro correctamente");
+
+                return new ResponseEntity<>(citas, HttpStatus.OK);
         }
 
-        int start = (int) pageable.getOffset();
-        int end = Math.min((start + pageable.getPageSize()), allCitas.size());
+        // Encontrar horas libres de un Profesional en una fecha especifica.
+        @Transactional(readOnly = true)
+        public ResponseEntity<List<String>> encontrarHorasLibresProfesional(Long profesionalId, LocalDate fecha,
+                        HttpServletRequest request) {
+                logger.info("encontrarHorasLibresProfesional()");
+                logger.info("Encontrando horas libres de Profesional con id {} en una fecha especifica {}",
+                                profesionalId,
+                                fecha.toString());
 
-        if (start > allCitas.size()) {
-            return new ResponseEntity<>(Page.empty(pageable), HttpStatus.OK);
+                com.ucacue.udipsai.modules.usuarios.domain.UsuarioAtencion especialista = usuarioAtencionRepo
+                                .findById(profesionalId.intValue())
+                                .orElseThrow(
+                                                () -> new EntityNotFoundException("Profesional con id " + profesionalId
+                                                                + " no encontrado"));
+
+                List<CitaEntity> citasOcupadas = citaRepo.findCitasOcupadasByProfesionalAndFecha(
+                                profesionalId.intValue(),
+                                fecha);
+                List<LocalTime> horasOcupadas = new ArrayList<>();
+
+                for (CitaEntity cita : citasOcupadas) {
+                        LocalTime start = cita.getHoraInicio();
+                        LocalTime end = cita.getHoraFin();
+                        while (start.isBefore(end)) {
+                                horasOcupadas.add(start);
+                                start = start.plusHours(1);
+                        }
+                }
+
+                List<String> horasLibres = new ArrayList<>();
+
+                LocalTime horaInicio = LocalTime.of(8, 0);
+                LocalTime horaReceso = LocalTime.of(12, 0);
+                LocalTime horaFin = LocalTime.of(17, 0);
+
+                while (horaInicio.isBefore(horaFin)) {
+                        if (!horasOcupadas.contains(horaInicio) && !horaInicio.equals(horaReceso)) {
+                                horasLibres.add(horaInicio.format(DateTimeFormatter.ofPattern("HH:mm")));
+                        }
+                        // Asumiendo citas de 1 hora de duraciÃ³n.
+                        horaInicio = horaInicio.plusHours(1);
+                }
+                logger.info("200 OK: Horas libres encontradas correctamente");
+                return new ResponseEntity<>(horasLibres, HttpStatus.OK);
         }
 
-        List<CitaEntity> paginatedList = allCitas.subList(start, end);
+        // Finalizar una Cita.
+        @Transactional
+        public ResponseEntity<?> finalizarCita(Long idCita) {
+                logger.info("finalizarCita()");
+                logger.info("Finalizando una Cita");
 
-        Page<CitaEntity> pageCitas = new PageImpl<>(paginatedList, pageable, allCitas.size());
+                CitaEntity cita = citaRepo.findById(idCita)
+                                .orElseThrow(() -> new EntityNotFoundException(
+                                                "Cita con id " + idCita + " no encontrada"));
 
-        logger.info("200 OK: Citas obtenidas por especialidades correctamente");
-        return new ResponseEntity<>(pageCitas, HttpStatus.OK);
-    }
+                if (cita.getEstado() != CitaEntity.Estado.PENDIENTE
+                                && cita.getEstado() != CitaEntity.Estado.FALTA_INJUSTIFICADA
+                                && cita.getEstado() != CitaEntity.Estado.FINALIZADA) {
+                        logger.error("Error al marcar FINALIZADA. Estado actual: " + cita.getEstado());
+                        throw new IllegalArgumentException(
+                                        "La cita no se puede finalizar porque anteriormente ya ha finalizado o ya fue cancelada. Estado actual: "
+                                                        + cita.getEstado());
+                }
 
-    // Obtener citas por paciente
-    @Transactional(readOnly = true)
-    public ResponseEntity<Page<CitaEntity>> obtenerCitasPorPaciente(Long idPaciente, Pageable pageable) {
-        logger.info("obtenerCitasPorPaciente()");
-        logger.info("Obteniendo citas por Paciente");
+                if (cita.getEstado() == CitaEntity.Estado.FINALIZADA
+                                || cita.getEstado() == CitaEntity.Estado.FALTA_INJUSTIFICADA) {
+                        throw new IllegalArgumentException(
+                                        "No se puede cambiar el estado de la cita porque ya se encuentra en un estado final (FINALIZADA o FALTA INJUSTIFICADA).");
+                }
 
-        Page<CitaEntity> citas = citaRepo.findAllByFichaPaciente(idPaciente, pageable);
+                cita.setEstado(CitaEntity.Estado.FINALIZADA);
+                citaRepo.save(cita);
+                logger.info("200 OK: Cita marcada como FINALIZADA correctamente");
+                CitaResponse citaResponse = new CitaResponse("Cita marcada como FINALIZADA correctamente");
+                return ResponseEntity.ok().body(citaResponse);
 
-        logger.info("200 OK: Citas obtenidas por Paciente correctamente");
+        }
 
-        return new ResponseEntity<>(citas, HttpStatus.OK);
-    }
+        // Cancelar una Cita.
+        @Transactional
+        public ResponseEntity<?> cancelarCita(Long idCita) {
+                logger.info("cancelarCita()");
+                logger.info("Cancelando una Cita");
 
-    // Obtener citas por paciente Completa
-    public ResponseEntity<Page<VistaCitasCompleta>> obtenerCitasCompletasPorPaciente(int idPaciente,
-            Pageable pageable) {
-        Page<VistaCitasCompleta> citas = vistaCitasCompletaRepository.findByFichaPaciente(idPaciente, pageable);
-        return new ResponseEntity<>(citas, HttpStatus.OK);
+                CitaEntity cita = citaRepo.findById(idCita)
+                                .orElseThrow(() -> new EntityNotFoundException(
+                                                "Cita con id " + idCita + " no encontrada"));
 
-    }
+                if (cita.getEstado() != CitaEntity.Estado.PENDIENTE) {
+                        throw new IllegalArgumentException(
+                                        "La cita no se puede cancelar porque ya ha finalizado o ya fue cancelada");
+                }
 
-    // Obtener Resumen Dashboard
-    @Transactional(readOnly = true)
-    public ResponseEntity<?> obtenerResumenDashboard(Long profesionalId) {
-        logger.info("obtenerResumenDashboard()");
-        logger.info("Obteniendo resumen dashboard para profesional {}", profesionalId);
+                cita.setEstado(CitaEntity.Estado.CANCELADA);
+                citaRepo.save(cita);
+                CitaResponse response = new CitaResponse("Cita cancelada correctamente");
 
-        long citasHoy = citaRepo.countByUsuarioAtencion_IdAndFecha(profesionalId.intValue(), LocalDate.now());
-        long pendientesTotales = citaRepo.countByUsuarioAtencion_IdAndEstado(profesionalId.intValue(),
-                CitaEntity.Estado.PENDIENTE);
+                return ResponseEntity.ok().body(response);
+        }
 
-        java.util.Map<String, Object> response = new java.util.HashMap<>();
-        response.put("citasHoy", citasHoy);
-        response.put("pendientesTotales", pendientesTotales);
+        // Cambiar estado de cita a Falta Justificada.
+        @Transactional
+        public ResponseEntity<?> faltaJustificada(Long idCita) {
+                return faltaInjustificada(idCita);
+        }
 
-        return ResponseEntity.ok(response);
-    }
+        // Cambiar estado de cita a Falta Injustificada.
+        @Transactional
+        public ResponseEntity<?> faltaInjustificada(Long idCita) {
+                logger.info("faltaInjustificada()");
+                logger.info("Cambiando estado de cita a Falta Injustificada");
+
+                CitaEntity cita = citaRepo.findById(idCita)
+                                .orElseThrow(() -> new EntityNotFoundException(
+                                                "Cita con id " + idCita + " no encontrada"));
+
+                if (cita.getEstado() != CitaEntity.Estado.PENDIENTE && cita.getEstado() != CitaEntity.Estado.FINALIZADA
+                                && cita.getEstado() != CitaEntity.Estado.FALTA_INJUSTIFICADA) {
+                        logger.error("Error al marcar NO ASISTIDO. Estado actual: " + cita.getEstado());
+                        throw new IllegalArgumentException(
+                                        "La cita no se puede asignar como NO ASISTIDO porque ya ha finalizado o ya fue cancelada. Estado actual: "
+                                                        + cita.getEstado());
+                }
+
+                if (cita.getEstado() == CitaEntity.Estado.FINALIZADA
+                                || cita.getEstado() == CitaEntity.Estado.FALTA_INJUSTIFICADA) {
+                        throw new IllegalArgumentException(
+                                        "No se puede cambiar el estado de la cita porque ya se encuentra en un estado final (FINALIZADA o FALTA INJUSTIFICADA).");
+                }
+
+                cita.setEstado(CitaEntity.Estado.FALTA_INJUSTIFICADA);
+                citaRepo.save(cita);
+                CitaResponse response = new CitaResponse("Cita asignada como NO ASISTIDO correctamente");
+
+                return ResponseEntity.ok().body(response);
+        }
+
+        static class CitaResponse {
+                private String message;
+
+                public CitaResponse(String message) {
+                        this.message = message;
+                }
+
+                public String getMessage() {
+                        return message;
+                }
+
+                public void setMessage(String message) {
+                        this.message = message;
+                }
+        }
+
+        // obtener citas filtro unico
+        @Transactional(readOnly = true)
+        public ResponseEntity<Page<CitaEntity>> obtenerCitasFiltro(String filtro, Pageable pageable) {
+                logger.info("obtenerCitasFiltro()");
+                logger.info("Obteniendo citas por filtro");
+
+                Page<CitaEntity> citas = citaRepo.findCitasFiltro(filtro, pageable);
+
+                logger.info("200 OK: Citas obtenidas por filtro correctamente");
+
+                return new ResponseEntity<>(citas, HttpStatus.OK);
+        }
+
+        // Obtener citas por Profesional
+        @Transactional(readOnly = true)
+        public ResponseEntity<Page<CitaDTO>> obtenerCitasPorProfesional(Long idProfesional, Pageable pageable) {
+                logger.info("obtenerCitasPorProfesional()");
+                logger.info("Obteniendo citas por Profesional");
+
+                Page<CitaEntity> citas = citaRepo.findAllByUsuarioAtencion_Id(idProfesional.intValue(), pageable);
+
+                if (citas.isEmpty()) {
+                        Page<CitaDTO> emptyPage = Page.empty(pageable);
+                        return new ResponseEntity<>(emptyPage, HttpStatus.OK);
+                }
+
+                Page<CitaDTO> dtos = citas.map(cita -> {
+                        Optional<Paciente> pacienteOpt = pacienteRepo.findById(cita.getFichaPaciente().intValue());
+                        if (pacienteOpt.isPresent()) {
+                                PacienteDTO paciente = pacienteService.convertirADTO(pacienteOpt.get());
+                                com.ucacue.udipsai.modules.usuarios.domain.UsuarioAtencion ua = cita
+                                                .getUsuarioAtencion();
+                                EspecialistaDTO especialista = EspecialistaDTO.builder()
+                                                .id(ua.getId())
+                                                .cedula(ua.getCedula())
+                                                .nombresApellidos(ua.getNombresApellidos())
+                                                .fotoUrl(ua.getFotoUrl())
+                                                .activo(ua.getActivo())
+                                                .permisos(ua.getPermisos())
+                                                .especialidad(
+                                                                new EspecialidadDTO(ua.getEspecialidad().getId(),
+                                                                                ua.getEspecialidad().getArea(), null))
+                                                .sede(ua.getSede() != null
+                                                                ? new com.ucacue.udipsai.modules.sedes.dto.SedeDTO(
+                                                                                ua.getSede().getId(),
+                                                                                ua.getSede().getNombre())
+                                                                : null)
+                                                .build();
+
+                                Especialidad especialidadEntity = cita.getEspecialidad();
+                                EspecialidadDTO especialidad = new EspecialidadDTO(especialidadEntity.getId(),
+                                                especialidadEntity.getArea(), null);
+
+                                return mapearDTO(cita, paciente, especialista, especialidad);
+                        } else {
+                                throw new EntityNotFoundException(
+                                                "Paciente no encontrado para cita " + cita.getIdCita());
+                        }
+                });
+
+                logger.info("200 OK: Citas obtenidas por Profesional correctamente");
+
+                return new ResponseEntity<>(dtos, HttpStatus.OK);
+        }
+
+        // Obtener citas por Especialidad (antes Area)
+        @Transactional(readOnly = true)
+        public ResponseEntity<Page<CitaDTO>> obtenerCitasPorEspecialidad(Integer idEspecialidad, Pageable pageable) {
+                logger.info("obtenerCitasPorEspecialidad()");
+                logger.info("Obteniendo citas por Especialidad");
+
+                Page<CitaEntity> citas = citaRepo.findAllByEspecialidad_Id(idEspecialidad, pageable);
+
+                if (citas.isEmpty()) {
+                        Page<CitaDTO> emptyPage = Page.empty(pageable);
+                        return new ResponseEntity<>(emptyPage, HttpStatus.OK);
+                }
+
+                Page<CitaDTO> dtos = citas.map(cita -> {
+                        Optional<Paciente> pacienteOpt = pacienteRepo.findById(cita.getFichaPaciente().intValue());
+                        if (pacienteOpt.isPresent()) {
+                                PacienteDTO paciente = pacienteService.convertirADTO(pacienteOpt.get());
+
+                                com.ucacue.udipsai.modules.usuarios.domain.UsuarioAtencion ua = cita
+                                                .getUsuarioAtencion();
+                                EspecialistaDTO especialista = EspecialistaDTO.builder()
+                                                .id(ua.getId())
+                                                .cedula(ua.getCedula())
+                                                .nombresApellidos(ua.getNombresApellidos())
+                                                .fotoUrl(ua.getFotoUrl())
+                                                .activo(ua.getActivo())
+                                                .permisos(ua.getPermisos())
+                                                .especialidad(
+                                                                new EspecialidadDTO(ua.getEspecialidad().getId(),
+                                                                                ua.getEspecialidad().getArea(), null))
+                                                .sede(ua.getSede() != null
+                                                                ? new com.ucacue.udipsai.modules.sedes.dto.SedeDTO(
+                                                                                ua.getSede().getId(),
+                                                                                ua.getSede().getNombre())
+                                                                : null)
+                                                .build();
+
+                                Especialidad especialidadEntity = cita.getEspecialidad();
+                                EspecialidadDTO especialidad = new EspecialidadDTO(especialidadEntity.getId(),
+                                                especialidadEntity.getArea(), null);
+
+                                return mapearDTO(cita, paciente, especialista, especialidad);
+                        } else {
+                                logger.warn("Paciente no encontrado para cita " + cita.getIdCita());
+                                return null;
+                        }
+                });
+
+                logger.info("200 OK: Citas obtenidas por Especialidad correctamente");
+
+                return new ResponseEntity<>(dtos, HttpStatus.OK);
+        }
+
+        // Obtener citas por una lista de especialidades
+        @Transactional(readOnly = true)
+        public ResponseEntity<Page<CitaEntity>> obtenerCitasPorEspecialidades(List<Integer> especialidades,
+                        Pageable pageable) {
+                logger.info("obtenerCitasPorEspecialidades()");
+                logger.info("Obteniendo citas por especialidades");
+
+                List<CitaEntity> allCitas = new ArrayList<>();
+
+                for (Integer espId : especialidades) {
+                        Page<CitaEntity> citasEsp = citaRepo.findAllByEspecialidad_Id(espId, pageable);
+                        allCitas.addAll(citasEsp.getContent());
+                }
+
+                if (allCitas.isEmpty()) {
+                        logger.info("No se encontraron citas para las especialidades proporcionadas");
+                        return new ResponseEntity<>(Page.empty(pageable), HttpStatus.OK);
+                }
+
+                int start = (int) pageable.getOffset();
+                int end = Math.min((start + pageable.getPageSize()), allCitas.size());
+
+                if (start > allCitas.size()) {
+                        return new ResponseEntity<>(Page.empty(pageable), HttpStatus.OK);
+                }
+
+                List<CitaEntity> paginatedList = allCitas.subList(start, end);
+
+                Page<CitaEntity> pageCitas = new PageImpl<>(paginatedList, pageable, allCitas.size());
+
+                logger.info("200 OK: Citas obtenidas por especialidades correctamente");
+                return new ResponseEntity<>(pageCitas, HttpStatus.OK);
+        }
+
+        // Obtener citas por paciente
+        @Transactional(readOnly = true)
+        public ResponseEntity<Page<CitaEntity>> obtenerCitasPorPaciente(Long idPaciente, Pageable pageable) {
+                logger.info("obtenerCitasPorPaciente()");
+                logger.info("Obteniendo citas por Paciente");
+
+                Page<CitaEntity> citas = citaRepo.findAllByFichaPaciente(idPaciente, pageable);
+
+                logger.info("200 OK: Citas obtenidas por Paciente correctamente");
+
+                return new ResponseEntity<>(citas, HttpStatus.OK);
+        }
+
+        // Obtener citas por paciente Completa
+        public ResponseEntity<Page<VistaCitasCompleta>> obtenerCitasCompletasPorPaciente(int idPaciente,
+                        Pageable pageable) {
+                Page<VistaCitasCompleta> citas = vistaCitasCompletaRepository.findByFichaPaciente(idPaciente, pageable);
+                return new ResponseEntity<>(citas, HttpStatus.OK);
+
+        }
+
+        // Obtener Resumen Dashboard
+        @Transactional(readOnly = true)
+        public ResponseEntity<?> obtenerResumenDashboard(Long profesionalId) {
+                logger.info("obtenerResumenDashboard()");
+                logger.info("Obteniendo resumen dashboard para profesional {}", profesionalId);
+
+                long citasHoy = citaRepo.countByUsuarioAtencion_IdAndFecha(profesionalId.intValue(), LocalDate.now());
+                long pendientesTotales = citaRepo.countByUsuarioAtencion_IdAndEstado(profesionalId.intValue(),
+                                CitaEntity.Estado.PENDIENTE);
+
+                java.util.Map<String, Object> response = new java.util.HashMap<>();
+                response.put("citasHoy", citasHoy);
+                response.put("pendientesTotales", pendientesTotales);
+
+                return ResponseEntity.ok(response);
+        }
 }

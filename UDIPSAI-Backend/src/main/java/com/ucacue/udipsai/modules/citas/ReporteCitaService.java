@@ -1,6 +1,5 @@
 package com.ucacue.udipsai.modules.citas;
 
-import com.ucacue.udipsai.modules.especialistas.repository.EspecialistaRepository;
 import com.ucacue.udipsai.modules.paciente.repository.PacienteRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
@@ -19,13 +18,7 @@ import java.util.Optional;
 public class ReporteCitaService {
 
     @Autowired
-    private VistaCitasCompletaRepository vistaCitasCompletaRepository;
-
-    @Autowired
     private PacienteRepository pacienteRepository;
-
-    @Autowired
-    private EspecialistaRepository especialistaRepository;
 
     @Autowired
     private CitaRepository citaRepository;
@@ -81,10 +74,8 @@ public class ReporteCitaService {
                     }
 
                     String nombreProfesional = "Desconocido";
-                    if (cita.getProfesionalId() != null) {
-                        nombreProfesional = especialistaRepository.findById(Math.toIntExact(cita.getProfesionalId()))
-                                .map(p -> p.getNombresApellidos())
-                                .orElse("Desconocido");
+                    if (cita.getUsuarioAtencion() != null) {
+                        nombreProfesional = cita.getUsuarioAtencion().getNombresApellidos();
                     }
 
                     String especialidadNombre = "General";

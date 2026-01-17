@@ -1,6 +1,8 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Modal } from "../ui/modal";
 import Button from "../ui/button/Button";
+import { AlertTriangle, Edit2, Save, X } from "lucide-react";
+import toast from "react-hot-toast";
 
 interface CitaInfoModalProps {
     isOpen: boolean;
@@ -24,17 +26,25 @@ const CitaInfoModal: React.FC<CitaInfoModalProps> = ({
     const [loading, setLoading] = useState(false);
     const [showConfirm, setShowConfirm] = useState(false);
 
-    if (!cita) return null;
+    // Estados para el flujo de cambio de estado
+    const [isEditingStatus, setIsEditingStatus] = useState(false);
+    const [tempStatus, setTempStatus] = useState<string>('PENDIENTE');
+    const [showStatusConfirm, setShowStatusConfirm] = useState(false);
 
     // Props de la cita
     const extendedProps = cita?.extendedProps || {};
-    const isPending = extendedProps.status === 'PENDIENTE';
-    const isFaltaInjustificada = extendedProps.status === 'FALTA_INJUSTIFICADA';
+    const currentStatus = extendedProps.status || 'PENDIENTE';
 
-    const handleDeleteClick = () => {
-        setShowConfirm(true);
-    };
+    // Sincronizar tempStatus con el estado actual al abrir/cambiar cita
+    useEffect(() => {
+        setTempStatus(currentStatus);
+        setIsEditingStatus(false);
+        setShowStatusConfirm(false);
+    }, [cita, currentStatus]);
 
+    if (!cita) return null;
+
+    // Helper para confirmar eliminacion
     const confirmDelete = async () => {
         if (!onDelete) return;
         setLoading(true);
@@ -49,21 +59,72 @@ const CitaInfoModal: React.FC<CitaInfoModalProps> = ({
         }
     };
 
-    const handleStatusChange = async (action: () => Promise<void>) => {
+    const handleActualStatusChange = async () => {
         setLoading(true);
         try {
-            await action();
+            if (tempStatus === 'FINALIZADA' && onMarkAsAttended) {
+                await onMarkAsAttended(cita.id);
+            } else if (tempStatus === 'NO_JUSTIFICADA' && onMarkAsNotAttended) {
+                await onMarkAsNotAttended(cita.id);
+            }
             onClose();
         } catch (error) {
             console.error("Error updating status", error);
+            toast.error("Error al actualizar estado");
         } finally {
             setLoading(false);
+            setShowStatusConfirm(false);
         }
+    };
+
+    const handleSaveStatusClick = () => {
+        if (tempStatus === currentStatus) {
+            setIsEditingStatus(false);
+            return;
+        }
+        if (tempStatus === 'PENDIENTE') {
+            toast.error("No se puede revertir a estado Pendiente");
+            return;
+        }
+        setShowStatusConfirm(true);
     };
 
     return (
         <Modal isOpen={isOpen} onClose={onClose} className="max-w-md p-6">
-            {!showConfirm ? (
+            {showStatusConfirm ? (
+                // --- VISTA CONFIRMAR CAMBIO DE ESTADO ---
+                <div className="text-center py-4">
+                    <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-yellow-100 mb-4 dark:bg-yellow-900/30">
+                        <AlertTriangle className="h-6 w-6 text-yellow-600 dark:text-yellow-400" />
+                    </div>
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">
+                        ¿Confirmar cambio de estado?
+                    </h3>
+                    <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+                        Vas a cambiar el estado de la cita a: <strong>{tempStatus}</strong>
+                    </p>
+                    <p className="text-xs text-red-500 font-medium mb-6">
+                        ⚠️ Esta acción NO se puede deshacer.
+                    </p>
+                    <div className="flex justify-center gap-3">
+                        <Button
+                            variant="outline"
+                            onClick={() => setShowStatusConfirm(false)}
+                            disabled={loading}
+                        >
+                            Cancelar
+                        </Button>
+                        <Button
+                            variant="primary" // O un color específico si se desea
+                            onClick={handleActualStatusChange}
+                            disabled={loading}
+                            className="bg-brand-600 hover:bg-brand-700 text-white"
+                        >
+                            {loading ? "Guardando..." : "Confirmar Cambio"}
+                        </Button>
+                    </div>
+                </div>
+            ) : !showConfirm ? (
                 // --- VISTA DETALLES ---
                 <>
                     <h3 className="text-xl font-semibold mb-4 text-gray-800 dark:text-white">
@@ -111,37 +172,80 @@ const CitaInfoModal: React.FC<CitaInfoModalProps> = ({
 
                         <div>
                             <label className="text-xs font-semibold text-gray-400 uppercase">Estado</label>
-                            <div className="mt-1">
-                                <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium uppercase
-                                    ${extendedProps.status === 'PENDIENTE' ? 'bg-orange-100 text-orange-800 dark:bg-orange-900/30 dark:text-orange-300' :
-                                        extendedProps.status === 'FINALIZADA' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-300' :
-                                            extendedProps.status === 'NO_JUSTIFICADA' || extendedProps.status === 'CANCELADA' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-300' :
-                                                'bg-gray-100 text-gray-800 dark:bg-gray-800 dark:text-gray-300'
-                                    }`}>
-                                    {extendedProps.status === 'NO_JUSTIFICADA' ? 'NO JUSTIFICADA' : (extendedProps.status || 'PENDIENTE')}
-                                </span>
+                            <div className="mt-1 flex items-center gap-2">
+                                {isEditingStatus ? (
+                                    // MODO EDICIÓN
+                                    <div className="flex items-center gap-2 w-full">
+                                        <select
+                                            value={tempStatus}
+                                            onChange={(e) => setTempStatus(e.target.value)}
+                                            className="block w-full rounded-md border-gray-300 shadow-sm focus:border-brand-500 focus:ring-brand-500 sm:text-sm px-3 py-2 border bg-gray-50 text-gray-900"
+                                        >
+                                            <option value="PENDIENTE">PENDIENTE</option>
+                                            <option value="FINALIZADA">FINALIZADA</option>
+                                            <option value="NO_JUSTIFICADA">FALTA INJUSTIFICADA</option>
+                                        </select>
+
+                                        <button
+                                            onClick={handleSaveStatusClick}
+                                            className="p-2 text-green-600 hover:bg-green-50 rounded-full transition-colors"
+                                            title="Guardar"
+                                        >
+                                            <Save size={18} />
+                                        </button>
+                                        <button
+                                            onClick={() => {
+                                                setIsEditingStatus(false);
+                                                setTempStatus(currentStatus);
+                                            }}
+                                            className="p-2 text-red-500 hover:bg-red-50 rounded-full transition-colors"
+                                            title="Cancelar"
+                                        >
+                                            <X size={18} />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    // MODO VISUALIZACIÓN
+                                    <div className="flex items-center justify-between w-full">
+                                        <span className={`px-3 py-1 rounded-full text-xs font-semibold border
+                                            ${currentStatus === 'PENDIENTE' ? 'bg-orange-50 text-orange-800 border-orange-200' :
+                                                currentStatus === 'FINALIZADA' ? 'bg-green-50 text-green-800 border-green-200' :
+                                                    currentStatus === 'NO_JUSTIFICADA' ? 'bg-red-50 text-red-800 border-red-200' :
+                                                        'bg-gray-50 text-gray-800 border-gray-200'}
+                                        `}>
+                                            {currentStatus === 'NO_JUSTIFICADA' ? 'FALTA INJUSTIFICADA' : currentStatus}
+                                        </span>
+
+                                        {/* Botón para habilitar edición solo si es PENDIENTE */}
+                                        {currentStatus === 'PENDIENTE' && (
+                                            <button
+                                                onClick={() => setIsEditingStatus(true)}
+                                                className="flex items-center gap-1 text-xs text-brand-600 hover:text-brand-800 font-medium px-2 py-1 rounded hover:bg-brand-50 transition-colors"
+                                            >
+                                                <Edit2 size={14} />
+                                                Cambiar Estado
+                                            </button>
+                                        )}
+
+                                        {(currentStatus === 'FINALIZADA' || currentStatus === 'NO_JUSTIFICADA') && (
+                                            <span className="text-xs text-gray-400 italic">No editable</span>
+                                        )}
+                                    </div>
+                                )}
                             </div>
                         </div>
                     </div>
 
                     {/* Botones de acción */}
-<<<<<<< HEAD
                     <div className="flex flex-col gap-3 mt-6">
-                        <div className="flex justify-end gap-3 transition-opacity">
-                            {/* Reagendar: Solo si es Pendiente o Falta Injustificada */}
-                            {(isPending || isFaltaInjustificada) && onReschedule && (
-=======
-                    <div className="flex justify-end gap-3 mt-6">
-                        {/* Mostrar Finalizar (Asistido) si es PENDIENTE o NO_JUSTIFICADA */}
-                        {(extendedProps.status === 'PENDIENTE' ||
-                            extendedProps.status === 'NO_JUSTIFICADA') && onMarkAsAttended && (
->>>>>>> Diego
+                        <div className="flex justify-end gap-3">
+                            {/* Boton Reagendar */}
+                            {(currentStatus === 'PENDIENTE' || currentStatus === 'NO_JUSTIFICADA') && onReschedule && (
                                 <Button
                                     variant="outline"
-                                    className="border-blue-200 text-blue-700 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-300 dark:hover:bg-blue-900/20"
+                                    className="!border-blue-600 !text-blue-600 hover:!bg-blue-50 dark:!border-blue-400 dark:!text-blue-400 dark:hover:!bg-blue-900/20"
                                     onClick={() => onReschedule(cita.id)}
                                 >
-<<<<<<< HEAD
                                     Reagendar
                                 </Button>
                             )}
@@ -154,81 +258,17 @@ const CitaInfoModal: React.FC<CitaInfoModalProps> = ({
                             </Button>
                         </div>
 
-                        {(isPending || isFaltaInjustificada || extendedProps.status === 'NO_ASISTIDO') && (
-                            <div className="border-t pt-4 flex justify-between items-center">
-                                <span className="text-xs text-gray-400">Acciones rápidas</span>
-                                <div className="flex gap-2">
-                                    {onMarkAsAttended && (
-                                        <Button
-                                            variant="outline"
-                                            className="text-green-600 border-transparent hover:text-green-700 hover:bg-green-50 px-3 py-1.5 h-auto text-sm"
-                                            onClick={() => handleStatusChange(() => onMarkAsAttended(cita.id))}
-                                            disabled={loading}
-                                        >
-                                            ✓ Asistió
-                                        </Button>
-                                    )}
-                                    {(isPending || extendedProps.status === 'FINALIZADA' || extendedProps.status === 'ASISTIDO') && onMarkAsNotAttended && (
-                                        <Button
-                                            variant="outline"
-                                            className="text-red-600 border-transparent hover:text-red-700 hover:bg-red-50 px-3 py-1.5 h-auto text-sm"
-                                            onClick={() => handleStatusChange(() => onMarkAsNotAttended(cita.id))}
-                                            disabled={loading}
-                                        >
-                                            ✕ No Asistió
-                                        </Button>
-                                    )}
-                                </div>
-                            </div>
-                        )}
-
-                        {isPending && onDelete && (
+                        {/* Cancelar (eliminar) cita si es Pendiente */}
+                        {currentStatus === 'PENDIENTE' && onDelete && (
                             <div className="flex justify-start mt-2">
                                 <button
-                                    onClick={handleDeleteClick}
+                                    onClick={() => setShowConfirm(true)}
                                     className="text-xs text-red-500 hover:text-red-700 underline"
                                 >
                                     Cancelar Cita
                                 </button>
                             </div>
                         )}
-
-=======
-                                    Finalizar Cita
-                                </Button>
-                            )}
-
-                        {/* Mostrar No Justificada si es PENDIENTE o FINALIZADA */}
-                        {(extendedProps.status === 'PENDIENTE' ||
-                            extendedProps.status === 'FINALIZADA') && onMarkAsNotAttended && (
-                                <Button
-                                    variant="danger"
-                                    onClick={() => handleStatusChange(() => onMarkAsNotAttended(cita.id))}
-                                    disabled={loading}
-                                >
-                                    No Justificada
-                                </Button>
-                            )}
-
-                        {/* Boton Reagendar */}
-                        {(extendedProps.status === 'PENDIENTE' || extendedProps.status === 'NO_JUSTIFICADA') && onReschedule && (
-                            <Button
-                                variant="outline"
-                                className="!border-blue-600 !text-blue-600 hover:!bg-blue-50 dark:!border-blue-400 dark:!text-blue-400 dark:hover:!bg-blue-900/20"
-                                onClick={() => onReschedule(cita.id)}
-                            >
-                                Reagendar
-                            </Button>
-                        )}
-
-                        {/* Boton Cerrar siempre visible si no hay acciones de gestion primaria */}
-                        <Button
-                            variant="outline"
-                            onClick={onClose}
-                        >
-                            Cerrar
-                        </Button>
->>>>>>> Diego
                     </div>
                 </>
             ) : (
@@ -239,7 +279,7 @@ const CitaInfoModal: React.FC<CitaInfoModalProps> = ({
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                         </svg>
                     </div>
-                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2"> ¿Cancelar esta cita?</h3>
+                    <h3 className="text-lg font-medium text-gray-900 dark:text-white mb-2">¿Cancelar esta cita?</h3>
                     <p className="text-sm text-gray-500 dark:text-gray-400 mb-6">
                         Esta acción no se puede deshacer. La cita será eliminada permanentemente del calendario.
                     </p>

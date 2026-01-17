@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { useNavigate } from "react-router";
 import { useAuth } from "../../context/AuthContext";
 import { Modal } from "../ui/modal";
@@ -7,6 +7,10 @@ import { citasService } from "../../services/citas";
 import { toast } from "react-hot-toast";
 import PatientSearchModal from "./PatientSearchModal";
 import SpecialistSearchModal from "./SpecialistSearchModal";
+
+import flatpickr from "flatpickr";
+import "flatpickr/dist/flatpickr.min.css";
+import { Spanish } from "flatpickr/dist/l10n/es.js";
 
 interface CitaModalProps {
     isOpen: boolean;
@@ -43,6 +47,35 @@ const CitaModal: React.FC<CitaModalProps> = ({
     const [endTime, setEndTime] = useState("");
     const [loading, setLoading] = useState(false);
 
+    // Date Picker Ref
+    const datePickerRef = useRef<HTMLInputElement>(null);
+
+    // Initialize Flatpickr
+    useEffect(() => {
+        if (datePickerRef.current) {
+            const fp = flatpickr(datePickerRef.current, {
+                locale: Spanish,
+                dateFormat: "Y-m-d",
+                defaultDate: initialDate || undefined,
+                minDate: "today",
+                onChange: (_, dateStr) => {
+                    setSelectedDate(dateStr);
+                }
+            });
+
+            return () => {
+                fp.destroy();
+            };
+        }
+    }, [isOpen]);
+
+    // Update Flatpickr when selectedDate changes externally (e.g. from props) or when modal opens
+    useEffect(() => {
+        if (datePickerRef.current && (datePickerRef.current as any)._flatpickr) {
+            (datePickerRef.current as any)._flatpickr.setDate(selectedDate);
+        }
+    }, [selectedDate, isOpen]);
+
     // Availability State
     const [availableHours, setAvailableHours] = useState<string[]>([]);
     const [isCheckingAvailability, setIsCheckingAvailability] = useState(false);
@@ -50,6 +83,9 @@ const CitaModal: React.FC<CitaModalProps> = ({
     // Modal control states
     const [showPatientModal, setShowPatientModal] = useState(false);
     const [showSpecialistModal, setShowSpecialistModal] = useState(false);
+
+    // Shift Filter State
+    const [shiftFilter, setShiftFilter] = useState<'all' | 'morning' | 'afternoon'>('all');
 
     useEffect(() => {
         setSelectedDate(initialDate);
@@ -82,6 +118,7 @@ const CitaModal: React.FC<CitaModalProps> = ({
             setSelectedPatient(null);
             setSelectedSpecialist(null);
             setDuration(1);
+            setShiftFilter('all');
         }
     }, [isOpen]);
 
@@ -188,21 +225,10 @@ const CitaModal: React.FC<CitaModalProps> = ({
         // Only apply if we have an initialTime set (from calendar click)
         const isBeforeInitial = initialTime ? time < initialTime : false;
 
-        // Validation 3: Shift Isolation
-        let isCrossShift = false;
-        if (startTime) {
-            const startH = parseInt(startTime.split(':')[0]);
-            const slotH = parseInt(time.split(':')[0]);
+        // Validation 3: Shift Isolation - REMOVED to allow switching shifts
+        // Duration limits are handled by getMaxDurationForTime
 
-            const isStartMorning = startH < 12;
-            const isSlotMorning = slotH < 12;
-
-            if (isStartMorning !== isSlotMorning) {
-                isCrossShift = true;
-            }
-        }
-
-        const isAvailable = availableHours.includes(time) && !isPast && !isCrossShift; // && !isBeforeInitial;
+        const isAvailable = availableHours.includes(time) && !isPast; // && !isBeforeInitial;
 
         // Check if this slot is part of the currently selected duration
         let isInDurationBlock = false;
@@ -331,7 +357,7 @@ const CitaModal: React.FC<CitaModalProps> = ({
                                         : "bg-gray-100 border-gray-200 text-gray-500"
                                         }`}
                                 />
-                                {selectedPatient && (
+                                {selectedPatient && !appointmentId && (
                                     <button
                                         onClick={() => setSelectedPatient(null)}
                                         className="p-2.5 rounded-lg border border-red-200 bg-red-50 text-red-600 hover:bg-red-100 transition"
@@ -351,7 +377,7 @@ const CitaModal: React.FC<CitaModalProps> = ({
                                 Buscar
                             </Button>
 
-                            {hasPermission("PERM_PACIENTES") && (
+                            {hasPermission("PERM_PACIENTES") && !appointmentId && (
                                 <button
                                     onClick={() => navigate("/pacientes/nuevo")}
                                     className="px-4 py-2.5 bg-brand-600 text-white rounded-lg hover:bg-brand-700 transition whitespace-nowrap font-medium shadow-sm"
@@ -421,10 +447,10 @@ const CitaModal: React.FC<CitaModalProps> = ({
                         <div className="mb-4">
                             <label className="block text-xs text-gray-500 mb-1">Fecha de la Cita</label>
                             <input
-                                type="date"
-                                value={selectedDate}
-                                onChange={(e) => setSelectedDate(e.target.value)}
-                                className="w-full rounded-lg border border-gray-300 px-4 py-2 dark:bg-gray-800 dark:border-gray-700 dark:text-white"
+                                ref={datePickerRef}
+                                type="text" // Change to text for Flatpickr
+                                className="w-full rounded-lg border border-gray-300 px-4 py-2 dark:bg-gray-800 dark:border-gray-700 dark:text-white bg-white"
+                                placeholder="Seleccione una fecha..."
                             />
                         </div>
 
@@ -441,28 +467,65 @@ const CitaModal: React.FC<CitaModalProps> = ({
                                 </div>
                             )}
 
-                            {/* Morning Slots */}
-                            <div>
-                                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 block">Mañana</span>
-                                <div className="grid grid-cols-4 gap-2">
-                                    {["08:00", "09:00", "10:00", "11:00"].map((time) => renderTimeSlot(time))}
-                                </div>
+                            {/* Shift Filters */}
+                            <div className="flex gap-2 mb-4">
+                                <button
+                                    onClick={() => setShiftFilter('all')}
+                                    className={`px-3 py-1.5 text-xs font-medium rounded-md border transition ${shiftFilter === 'all'
+                                        ? 'bg-brand-50 border-brand-200 text-brand-700'
+                                        : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                                        }`}
+                                >
+                                    Todos
+                                </button>
+                                <button
+                                    onClick={() => setShiftFilter('morning')}
+                                    className={`px-3 py-1.5 text-xs font-medium rounded-md border transition ${shiftFilter === 'morning'
+                                        ? 'bg-brand-50 border-brand-200 text-brand-700'
+                                        : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                                        }`}
+                                >
+                                    Mañana
+                                </button>
+                                <button
+                                    onClick={() => setShiftFilter('afternoon')}
+                                    className={`px-3 py-1.5 text-xs font-medium rounded-md border transition ${shiftFilter === 'afternoon'
+                                        ? 'bg-brand-50 border-brand-200 text-brand-700'
+                                        : 'bg-white border-gray-200 text-gray-600 hover:bg-gray-50'
+                                        }`}
+                                >
+                                    Tarde
+                                </button>
                             </div>
+
+                            {/* Morning Slots */}
+                            {(shiftFilter === 'all' || shiftFilter === 'morning') && (
+                                <div>
+                                    <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 block">Mañana</span>
+                                    <div className="grid grid-cols-4 gap-2">
+                                        {["08:00", "09:00", "10:00", "11:00"].map((time) => renderTimeSlot(time))}
+                                    </div>
+                                </div>
+                            )}
 
                             {/* Lunch Break */}
-                            <div className="flex items-center gap-2 py-1 opacity-60">
-                                <div className="h-px bg-gray-200 dark:bg-gray-700 flex-1"></div>
-                                <span className="text-xs text-gray-400">12:00 - 13:00 Receso</span>
-                                <div className="h-px bg-gray-200 dark:bg-gray-700 flex-1"></div>
-                            </div>
+                            {shiftFilter === 'all' && (
+                                <div className="flex items-center gap-2 py-1 opacity-60">
+                                    <div className="h-px bg-gray-200 dark:bg-gray-700 flex-1"></div>
+                                    <span className="text-xs text-gray-400">12:00 - 13:00 Receso</span>
+                                    <div className="h-px bg-gray-200 dark:bg-gray-700 flex-1"></div>
+                                </div>
+                            )}
 
                             {/* Afternoon Slots */}
-                            <div>
-                                <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 block">Tarde</span>
-                                <div className="grid grid-cols-4 gap-2">
-                                    {["13:00", "14:00", "15:00", "16:00"].map((time) => renderTimeSlot(time))}
+                            {(shiftFilter === 'all' || shiftFilter === 'afternoon') && (
+                                <div>
+                                    <span className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2 block">Tarde</span>
+                                    <div className="grid grid-cols-4 gap-2">
+                                        {["13:00", "14:00", "15:00", "16:00"].map((time) => renderTimeSlot(time))}
+                                    </div>
                                 </div>
-                            </div>
+                            )}
 
                             {/* Duration and Summary */}
                             {startTime && (

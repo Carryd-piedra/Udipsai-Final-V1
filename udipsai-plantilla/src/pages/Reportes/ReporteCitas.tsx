@@ -24,7 +24,6 @@ const ReporteCitas = () => {
     const [cedula, setCedula] = useState("");
     const [reporte, setReporte] = useState<ReporteCitaRespuestaDTO | null>(null);
     const [loading, setLoading] = useState(false);
-    const [searched, setSearched] = useState(false);
     const [tipoReporte, setTipoReporte] = useState<"SECRETARIA" | "PADRES">("SECRETARIA");
     const [alcance, setAlcance] = useState<"RAPIDO" | "COMPLETO">("RAPIDO");
 
@@ -34,7 +33,6 @@ const ReporteCitas = () => {
             return;
         }
         setLoading(true);
-        setSearched(true);
         setReporte(null);
         try {
             // Adjust the base URL if needed, assuming relative path works with proxy or configured axios
